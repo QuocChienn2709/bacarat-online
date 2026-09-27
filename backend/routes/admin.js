@@ -72,7 +72,7 @@ router.post("/users/:id/set", adminAuth, async (req, res) => {
   res.json({ balance: user.balance });
 });
 
-// ============ 🔥 KHÓA / MỞ KHÓA (FIX) ============
+// ============ KHÓA / MỞ KHÓA ============
 router.post("/users/:id/toggle-ban", adminAuth, async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: "Không tìm thấy" });
@@ -80,7 +80,6 @@ router.post("/users/:id/toggle-ban", adminAuth, async (req, res) => {
   user.banned = !user.banned;
   await user.save();
 
-  // Nếu vừa bị ban → force logout ngay lập tức
   if (user.banned) {
     eventBus.emit("force-logout", user.username);
   }
@@ -103,22 +102,36 @@ router.post("/users/:id/reset-password", adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ============ 🔥 XÓA USER (FIX) ============
-router.delete("/users/:id", adminAuth, async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (user) {
-    eventBus.emit("force-logout", user.username);
-    await User.findByIdAndDelete(req.params.id);
-  }
-  res.json({ ok: true });
-});
-
-// ============ 🔥 RESET AVATAR USER ============
+// ============ 🔥 RESET AVATAR ============
 router.post("/users/:id/reset-avatar", adminAuth, async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: "Không tìm thấy" });
   user.avatar = "";
   await user.save();
+
+  // 🔥 Xóa khỏi cache engine + broadcast
+  try {
+    const engine = require("../game/engine");
+    engine.updateAvatar(user.username, "");
+    engine.broadcastLeaderboard();
+  } catch(e) {}
+
+  res.json({ ok: true });
+});
+
+// ============ XÓA USER ============
+router.delete("/users/:id", adminAuth, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (user) {
+    eventBus.emit("force-logout", user.username);
+    await User.findByIdAndDelete(req.params.id);
+
+    // 🔥 Xóa khỏi cache engine
+    try {
+      const engine = require("../game/engine");
+      engine.updateAvatar(user.username, "");
+    } catch(e) {}
+  }
   res.json({ ok: true });
 });
 
