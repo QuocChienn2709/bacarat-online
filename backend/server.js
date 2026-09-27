@@ -11,13 +11,15 @@ const gameRoutes = require("./routes/game");
 const chatRoutes = require("./routes/chat");
 const adminRoutes = require("./routes/admin");
 const Chat = require("./models/Chat");
+const User = require("./models/User");
 const engine = require("./game/engine");
+const eventBus = require("./utils/eventBus");
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: "*", credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "1mb" })); // tăng limit cho avatar base64
 
 app.use("/api/auth", authRoutes);
 app.use("/api/game", gameRoutes);
@@ -25,16 +27,24 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.get("/", (req, res) => res.json({ ok: true, service: "baccarat v2" }));
 
+// ============ SOCKET.IO ============
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET","POST"] }
 });
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
-  if (token) {
-    try { socket.user = jwt.verify(token, process.env.JWT_SECRET); } catch(e){}
+  if (!token) return next(); // khách vẫn xem được chat
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(payload.id);
+    if (!user) return next(new Error("Tài khoản không tồn tại"));
+    if (user.banned) return next(new Error("Tài khoản đã bị khóa"));
+    socket.user = { ...payload, user };
+    next();
+  } catch (e) {
+    next();
   }
-  next();
 });
 
 let onlineCount = 0;
@@ -84,14 +94,22 @@ io.on("connection", socket => {
   });
 });
 
-engine.on("state", state => {
-  io.emit("game:state", state);
+// 🔥 FORCE LOGOUT
+eventBus.on("force-logout", username => {
+  console.log(`🔨 Force logout: @${username}`);
+  for (const [id, sock] of io.sockets.sockets) {
+    if (sock.user && sock.user.username === username) {
+      sock.emit("force-logout", { reason: "Tài khoản đã bị khóa" });
+      sock.disconnect(true);
+    }
+  }
+  onlineUsers.delete(username);
+  broadcastOnline();
 });
 
-engine.on("leaderboard", data => {
-  io.emit("game:leaderboard", data);
-});
-
+// ---- ENGINE ----
+engine.on("state", state => io.emit("game:state", state));
+engine.on("leaderboard", data => io.emit("game:leaderboard", data));
 engine.on("settled", ({ roundId, result, settlements }) => {
   for (const s of settlements) {
     for (const [id, sock] of io.sockets.sockets) {
@@ -105,6 +123,7 @@ engine.on("settled", ({ roundId, result, settlements }) => {
   io.emit("game:result", { roundId, result });
 });
 
+// ============ MONGODB ============
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
