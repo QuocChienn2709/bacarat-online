@@ -12,10 +12,8 @@
 <div class="orb orb2"></div>
 <div class="orb orb3"></div>
 
-<!-- Toast nhỏ (góc trên) -->
 <div class="result-toast" id="resultToast"></div>
 
-<!-- Overlay thông báo lớn (giữa màn hình) -->
 <div class="result-flash" id="resultFlash">
     <div class="result-flash-content">
         <div class="result-flash-icon" id="flashIcon">🎉</div>
@@ -91,7 +89,29 @@
     <button class="clear-btn" id="clearBet">Xóa cược (chỉ khi chưa cược)</button>
 </section>
 
-<!-- LEADERBOARD (thu gọn được) -->
+<!-- TOP PLAYERS -->
+<div class="section-title clickable" data-target="topWrap">
+    <h3>👑 Bảng xếp hạng tổng</h3>
+    <div class="section-right">
+        <span id="topCount">0</span>
+        <span class="toggle-chevron">▾</span>
+    </div>
+</div>
+<div class="collapsible collapsed" id="topWrap">
+    <section class="top-players glass">
+        <div class="top-tabs">
+            <button class="top-tab active" data-top="win">🏆 Thắng</button>
+            <button class="top-tab" data-top="bet">💰 Cược</button>
+            <button class="top-tab" data-top="net">📈 Lãi</button>
+            <button class="top-tab" data-top="streak">🔥 Chuỗi</button>
+        </div>
+        <div id="topList" class="top-list">
+            <div class="chat-empty" style="height:auto;padding:20px;">Đang tải...</div>
+        </div>
+    </section>
+</div>
+
+<!-- LEADERBOARD -->
 <div class="section-title clickable" data-target="leaderboardWrap">
     <h3>🏆 Cược ván này</h3>
     <div class="section-right">
@@ -105,7 +125,7 @@
     </section>
 </div>
 
-<!-- HISTORY (thu gọn được) -->
+<!-- HISTORY -->
 <div class="section-title clickable" data-target="historyWrap">
     <h3>📜 Lịch sử ván</h3>
     <div class="section-right">
@@ -126,12 +146,10 @@
 </footer>
 </div>
 
-<!-- NÚT CHAT NỔI (FAB) -->
-<button class="chat-fab" id="chatFab" title="Chat">
-    💬
-</button>
+<!-- CHAT FAB -->
+<button class="chat-fab" id="chatFab" title="Chat">💬</button>
 
-<!-- PANEL CHAT KÉO ĐƯỢC -->
+<!-- CHAT FLOAT -->
 <div class="chat-float" id="chatFloat">
     <div class="chat-float-header" id="chatDragHandle">
         <div class="chat-float-title">
@@ -189,6 +207,18 @@
 
         <div id="profileView" style="display:none"></div>
 
+        <div id="avatarEditor" style="display:none">
+            <h3 style="margin-top:0">📷 Đổi avatar</h3>
+            <div class="avatar-editor">
+                <div class="avatar-preview" id="avatarPreview"></div>
+                <input type="file" id="avatarInput" accept="image/*" style="display:none">
+                <button class="main-btn" id="chooseAvatarBtn" type="button">📁 Chọn ảnh</button>
+                <div class="avatar-hint">Ảnh sẽ được thu nhỏ tự động (tối đa 150KB)</div>
+                <div id="avatarMsg" style="min-height:16px;font-size:11px;text-align:center;"></div>
+                <button class="clear-btn" type="button" id="backFromAvatar">Quay lại</button>
+            </div>
+        </div>
+
         <div id="changePassArea" style="display:none">
             <h3 style="margin-top:0">🔒 Đổi mật khẩu</h3>
             <form id="changePassForm" class="auth-form active">
@@ -230,8 +260,8 @@
 </div>
 
 <script>
-  window.API_URL = "https://bacarat-online.onrender.com";
-  window.SOCKET_URL = "https://bacarat-online.onrender.com";
+  window.API_URL = "https://your-backend.onrender.com";
+  window.SOCKET_URL = "https://your-backend.onrender.com";
 </script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="app.js"></script>
