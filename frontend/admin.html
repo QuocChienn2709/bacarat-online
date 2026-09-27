@@ -9,7 +9,6 @@
 <body>
 <div class="container">
 
-  <!-- LOGIN -->
   <div class="login-box" id="loginBox">
     <h2 style="text-align:center;margin-top:0">🔐 Admin Login</h2>
     <input id="adminUser" placeholder="Username" value="admin">
@@ -18,11 +17,13 @@
     <p id="loginMsg" class="msg-error"></p>
   </div>
 
-  <!-- DASHBOARD -->
   <div id="dashboard" class="hidden">
     <div class="header">
       <h1 style="margin:0">👑 Quản lý người chơi</h1>
-      <button class="danger" onclick="Admin.logout()">Đăng xuất</button>
+      <div style="display:flex;gap:8px">
+        <button class="warn" onclick="Admin.loadUsers()">🔄 Làm mới</button>
+        <button class="danger" onclick="Admin.logout()">Đăng xuất</button>
+      </div>
     </div>
 
     <div class="stats-row">
@@ -46,11 +47,14 @@
       <table>
         <thead>
           <tr>
+            <th>Avatar</th>
             <th>Username</th>
             <th>Mật khẩu</th>
             <th>Số dư</th>
-            <th>Chuỗi thắng</th>
-            <th>Số ván</th>
+            <th>Chuỗi</th>
+            <th>Ván</th>
+            <th>Tổng cược</th>
+            <th>Tổng thắng</th>
             <th>Trạng thái</th>
             <th>Hành động</th>
           </tr>
@@ -61,7 +65,6 @@
   </div>
 </div>
 
-<!-- MODAL CỘNG/TRỪ TIỀN -->
 <div class="modal" id="moneyModal">
   <div class="modal-box">
     <h3 id="modalTitle">Cộng tiền</h3>
@@ -76,7 +79,6 @@
 </div>
 
 <script>
-  // 👈 ĐỔI THÀNH URL RENDER CỦA BẠN
   window.API_URL = "https://bacarat-online.onrender.com";
 </script>
 <script src="admin.js"></script>
