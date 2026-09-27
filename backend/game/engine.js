@@ -62,6 +62,7 @@ class GameEngine extends EventEmitter {
     this.currentBets = new Map();
     this.timer = null;
     this.history = [];
+    this.avatarCache = new Map();   // 🔥 username -> avatar
     this._loadHistory();
   }
 
@@ -71,6 +72,12 @@ class GameEngine extends EventEmitter {
       this.history = list.reverse();
       const last = await History.findOne().sort({ roundId: -1 });
       if (last) this.roundId = last.roundId;
+
+      // 🔥 Preload avatar tất cả user vào cache
+      const users = await User.find().select("username avatar");
+      for (const u of users) {
+        if (u.avatar) this.avatarCache.set(u.username, u.avatar);
+      }
     } catch (e) {
       console.error("Load history error:", e.message);
     }
@@ -81,6 +88,12 @@ class GameEngine extends EventEmitter {
     return this.shoe.pop();
   }
 
+  // 🔥 Cập nhật avatar vào cache (gọi khi user/admin đổi avatar)
+  updateAvatar(username, avatar) {
+    if (avatar) this.avatarCache.set(username, avatar);
+    else this.avatarCache.delete(username);
+  }
+
   getLeaderboard() {
     const list = [];
     for (const [username, bets] of this.currentBets) {
@@ -88,6 +101,7 @@ class GameEngine extends EventEmitter {
       if (total <= 0) continue;
       list.push({
         username,
+        avatar: this.avatarCache.get(username) || "",   // 🔥 avatar từ cache
         player: bets.player,
         banker: bets.banker,
         tie: bets.tie,
@@ -172,6 +186,11 @@ class GameEngine extends EventEmitter {
 
     cur[side] += amount;
     this.currentBets.set(username, cur);
+
+    // 🔥 Cache avatar của user khi đặt cược
+    if (user.avatar) {
+      this.avatarCache.set(username, user.avatar);
+    }
 
     await Bet.findOneAndUpdate(
       { roundId: this.roundId, username },
@@ -284,7 +303,6 @@ class GameEngine extends EventEmitter {
           user.streak = won ? user.streak + 1 : 0;
           user.roundsPlayed += 1;
 
-          // 🔥 Cập nhật thống kê tổng
           user.totalBet = (user.totalBet || 0) + stake;
           if (won) {
             user.totalWin = (user.totalWin || 0) + winReturn;
@@ -296,6 +314,10 @@ class GameEngine extends EventEmitter {
           user.totalNet = (user.totalNet || 0) + net;
 
           await user.save();
+
+          // 🔥 Cập nhật avatar cache
+          if (user.avatar) this.avatarCache.set(username, user.avatar);
+
           settlements.push({ username, balance: user.balance, net, won });
         }
         await Bet.updateOne(
