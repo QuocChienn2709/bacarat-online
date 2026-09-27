@@ -186,6 +186,7 @@ function setupAvatarEditor(){
       updateAccountUI();
       updateChatAvatars();
       renderTopPlayers();
+      renderLeaderboard();
 
       setTimeout(() => {
         el("avatarEditor").style.display = "none";
@@ -261,7 +262,6 @@ async function loadTopPlayers(){
     const list = await api(`/api/game/top?type=${topType}&limit=10`);
     topPlayers = list;
     renderTopPlayers();
-    // Cập nhật lại chat (avatar có thể mới)
     renderChatList(_chatCache);
   } catch(e) {
     el("topList").innerHTML =
@@ -315,9 +315,7 @@ function initSocket(){
   if (socket) return;
   socket = io(SOCKET_URL, { auth: { token } });
 
-  socket.on("connect", () => {
-    // connected
-  });
+  socket.on("connect", () => {});
 
   socket.on("force-logout", ({ reason }) => {
     alert("🚫 " + (reason || "Tài khoản đã bị khóa. Vui lòng đăng nhập lại."));
@@ -338,10 +336,9 @@ function initSocket(){
     renderLeaderboard();
   });
 
-  socket.on("game:settled", ({ net, balance: newBal, won }) => {
+  socket.on("game:settled", ({ net, balance: newBal }) => {
     balance = newBal;
     updateBalanceUI();
-    // Hiện flash
     if (net > 0) showResultFlash(net, 1, null);
     else if (net < 0) showResultFlash(net, 1, null);
     else showResultFlash(0, 0, "tie");
@@ -518,23 +515,35 @@ async function refreshMyBets(){
   } catch(e){}
 }
 
-// ============ LEADERBOARD ============
+// ============ LEADERBOARD (Cược ván này) ============
 function renderLeaderboard(){
   const box = el("leaderboardList");
   el("leaderboardCount").textContent = leaderboard.length + " người cược";
+
   if (!leaderboard.length) {
     box.innerHTML = `<div class="chat-empty" style="height:auto;padding:20px;">Chưa có ai đặt cược</div>`;
     return;
   }
+
   box.innerHTML = leaderboard.map((entry, i) => {
     const isMe = currentUsername && entry.username === currentUsername;
     const isOnline = onlineUsers.includes(entry.username);
     const rank = i + 1;
     const rankCls = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const rankIcon = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
+
+    // 🔥 Avatar: ưu tiên từ server, fallback avatar user hiện tại
+    let avatarSrc = entry.avatar || "";
+    if (isMe && !avatarSrc && currentAvatar) avatarSrc = currentAvatar;
+
+    const avatarHTML = avatarSrc
+      ? `<img src="${avatarSrc}" alt="">`
+      : escapeHTML(entry.username.charAt(0).toUpperCase());
+
     return `
       <div class="leaderboard-item ${isMe ? "me" : ""}">
         <div class="leaderboard-rank ${rankCls}">${rankIcon}</div>
+        <div class="leaderboard-avatar">${avatarHTML}</div>
         <div class="leaderboard-main">
           <strong>
             @${escapeHTML(entry.username)}
@@ -554,6 +563,7 @@ function renderLeaderboard(){
       </div>
     `;
   }).join("");
+
   if (currentUsername) {
     const meEl = box.querySelector(".leaderboard-item.me");
     if (meEl) {
