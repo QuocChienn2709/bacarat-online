@@ -20,6 +20,8 @@ let selectedChip = 25;
 let socket = null;
 let lastRoundId = 0;
 let toastTimer = null;
+let chatOpen = false;
+let chatUnread = 0;
 
 const el = id => document.getElementById(id);
 
@@ -39,18 +41,137 @@ async function api(path, options={}) {
   return data;
 }
 
+// ============ COLLAPSIBLE SECTIONS ============
+function setupCollapsibles(){
+  document.querySelectorAll(".section-title.clickable").forEach(title => {
+    title.addEventListener("click", () => {
+      const targetId = title.dataset.target;
+      const wrap = document.getElementById(targetId);
+      if (!wrap) return;
+
+      const isCollapsed = wrap.classList.toggle("collapsed");
+      title.classList.toggle("collapsed", isCollapsed);
+
+      // Lưu trạng thái vào localStorage
+      const key = "bac_collapse_" + targetId;
+      localStorage.setItem(key, isCollapsed ? "1" : "0");
+    });
+
+    // Khôi phục trạng thái từ localStorage
+    const targetId = title.dataset.target;
+    const key = "bac_collapse_" + targetId;
+    if (localStorage.getItem(key) === "1") {
+      const wrap = document.getElementById(targetId);
+      if (wrap) wrap.classList.add("collapsed");
+      title.classList.add("collapsed");
+    }
+  });
+}
+
+// ============ CHAT FLOATING PANEL ============
+function setupChatPanel(){
+  const fab = el("chatFab");
+  const panel = el("chatFloat");
+  const closeBtn = el("chatCloseBtn");
+
+  fab.addEventListener("click", () => {
+    if (chatOpen) closeChat();
+    else openChat();
+  });
+
+  closeBtn.addEventListener("click", closeChat);
+
+  // Đóng khi ESC
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && chatOpen) closeChat();
+  });
+
+  // Drag
+  setupChatDrag();
+}
+
+function openChat(){
+  chatOpen = true;
+  el("chatFloat").classList.add("show");
+  chatUnread = 0;
+  el("chatFab").classList.remove("has-unread");
+  setTimeout(() => el("chatInput").focus(), 250);
+}
+
+function closeChat(){
+  chatOpen = false;
+  el("chatFloat").classList.remove("show");
+}
+
+function setupChatDrag(){
+  const panel = el("chatFloat");
+  const handle = el("chatDragHandle");
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+  function onStart(e){
+    if (e.target.closest(".chat-float-close")) return;
+    if (e.target.closest("input")) return;
+
+    const touch = e.touches ? e.touches[0] : e;
+    dragging = true;
+
+    const rect = panel.getBoundingClientRect();
+    panel.style.left = rect.left + "px";
+    panel.style.top = rect.top + "px";
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+
+    startX = touch.clientX;
+    startY = touch.clientY;
+    startLeft = rect.left;
+    startTop = rect.top;
+
+    panel.classList.add("dragging");
+    e.preventDefault();
+  }
+
+  function onMove(e){
+    if (!dragging) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+
+    const rect = panel.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width;
+    const maxY = window.innerHeight - rect.height;
+
+    let newX = Math.max(0, Math.min(startLeft + dx, maxX));
+    let newY = Math.max(0, Math.min(startTop + dy, maxY));
+
+    panel.style.left = newX + "px";
+    panel.style.top = newY + "px";
+    e.preventDefault();
+  }
+
+  function onEnd(){
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove("dragging");
+  }
+
+  handle.addEventListener("mousedown", onStart);
+  handle.addEventListener("touchstart", onStart, { passive: false });
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("touchmove", onMove, { passive: false });
+  document.addEventListener("mouseup", onEnd);
+  document.addEventListener("touchend", onEnd);
+}
+
 // ============ SOCKET ============
 function initSocket(){
   if (socket) return;
   socket = io(SOCKET_URL, { auth: { token } });
 
-  socket.on("connect", () => el("onlineStatus").textContent = "🟢 Online");
-  socket.on("disconnect", () => el("onlineStatus").textContent = "🔴 Mất kết nối");
-
   socket.on("online:count", ({ total, users }) => {
     onlineUsers = users || [];
     el("onlineCount").textContent = total;
-    el("onlineStatus").textContent = `🟢 ${total} online`;
+    el("chatOnline").textContent = total + " online";
     renderLeaderboard();
   });
 
@@ -61,7 +182,7 @@ function initSocket(){
     renderLeaderboard();
   });
 
-  socket.on("game:settled", ({ net, balance: newBal, won }) => {
+  socket.on("game:settled", ({ net, balance: newBal }) => {
     balance = newBal;
     updateBalanceUI();
   });
@@ -72,6 +193,15 @@ function initSocket(){
     if (box.querySelector(".chat-empty")) box.innerHTML = "";
     box.insertAdjacentHTML("beforeend", chatItemHTML(msg));
     box.scrollTop = box.scrollHeight;
+
+    // Nếu chat đóng → hiện badge
+    if (!chatOpen) {
+      const mine = currentUsername && msg.username === currentUsername;
+      if (!mine) {
+        chatUnread++;
+        el("chatFab").classList.add("has-unread");
+      }
+    }
   });
 }
 
@@ -242,7 +372,7 @@ function renderLeaderboard(){
   el("leaderboardCount").textContent = leaderboard.length + " người cược";
 
   if (!leaderboard.length) {
-    box.innerHTML = `<div class="chat-empty">Chưa có ai đặt cược</div>`;
+    box.innerHTML = `<div class="chat-empty" style="height:auto;padding:20px;">Chưa có ai đặt cược</div>`;
     return;
   }
 
@@ -254,7 +384,7 @@ function renderLeaderboard(){
     const rankIcon = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
 
     return `
-      <div class="leaderboard-item ${isMe ? "me" : ""}" data-user="${escapeHTML(entry.username)}">
+      <div class="leaderboard-item ${isMe ? "me" : ""}">
         <div class="leaderboard-rank ${rankCls}">${rankIcon}</div>
         <div class="leaderboard-main">
           <strong>
@@ -290,7 +420,7 @@ function renderHistory(){
   const box = el("historyList");
   el("historyCount").textContent = historyList.length + " ván";
   if (!historyList.length) {
-    box.innerHTML = `<div class="chat-empty">Chưa có lịch sử</div>`;
+    box.innerHTML = `<div class="chat-empty" style="height:auto;padding:20px;">Chưa có lịch sử</div>`;
     return;
   }
   box.innerHTML = historyList.slice().reverse().map((item, i) => {
@@ -341,6 +471,67 @@ function openHistoryDetail(idx){
   el("historyOverlay").classList.add("show");
 }
 function closeHistoryDetail(){ el("historyOverlay").classList.remove("show"); }
+
+// ============ RESULT FLASH (giữa màn hình) ============
+function showResultFlash(net, stake, result){
+  const flash = el("resultFlash");
+  const icon = el("flashIcon");
+  const title = el("flashTitle");
+  const amount = el("flashAmount");
+
+  flash.className = "result-flash";
+
+  if (stake <= 0) {
+    // Không cược → hiện nhẹ nhàng
+    icon.textContent = "🎲";
+    title.textContent = resultName(result);
+    amount.textContent = "Kết quả ván";
+    flash.classList.add("show", "push");
+  } else if (net > 0) {
+    icon.textContent = "🎉";
+    title.textContent = "THẮNG";
+    amount.textContent = "+" + net.toLocaleString("vi-VN");
+    flash.classList.add("show", "win");
+  } else if (net < 0) {
+    icon.textContent = "😔";
+    title.textContent = "THUA";
+    amount.textContent = net.toLocaleString("vi-VN");
+    flash.classList.add("show", "lose");
+  } else {
+    icon.textContent = "🤝";
+    title.textContent = "HÒA VỐN";
+    amount.textContent = resultName(result);
+    flash.classList.add("show", "push");
+  }
+
+  // Xóa animation để có thể replay
+  const content = flash.querySelector(".result-flash-content");
+  content.style.animation = "none";
+  void content.offsetWidth;
+  content.style.animation = "";
+
+  clearTimeout(flash._timer);
+  flash._timer = setTimeout(() => {
+    flash.classList.remove("show");
+  }, 2700);
+}
+
+// ============ TOAST nhỏ ============
+function showResultToast(result, net, stake){
+  const toast = el("resultToast");
+  let cls, text;
+  if (stake <= 0){ cls="neutral"; text=`Kết quả: ${resultName(result)}`; }
+  else if (net > 0){ cls="win"; text=`🎉 +${net.toLocaleString("vi-VN")}`; }
+  else if (net < 0){ cls="lose"; text=`😔 ${net.toLocaleString("vi-VN")}`; }
+  else { cls="push"; text=`Hòa vốn · ${resultName(result)}`; }
+  toast.textContent = text;
+  toast.className = "result-toast show " + cls;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+}
+
+// Hook vào socket để nhận kết quả settle → hiện flash + toast
+// (đã cài ở phần trên, mở rộng thêm)
 
 // ============ CHAT ============
 function chatItemHTML(item){
@@ -592,12 +783,34 @@ el("themeBtn").addEventListener("click", function(){
   this.textContent = html.dataset.theme === "light" ? "☀️" : "🌙";
 });
 
+// ============ SOCKET HOOK cho result flash ============
+// Mở rộng initSocket để xử lý flash
+const _origInitSocket = initSocket;
+initSocket = function(){
+  _origInitSocket();
+  // Gắn thêm listener game:settled để hiện flash
+  if (socket) {
+    socket.on("game:settled", ({ net, balance: newBal }) => {
+      // net có sẵn → dùng để hiện flash
+      // stake không có sẵn nhưng có thể ước lượng
+      const stake = net > 0 ? null : null;
+      // Hiện flash dựa trên net
+      if (net > 0) showResultFlash(net, 1, null);
+      else if (net < 0) showResultFlash(net, 1, null);
+      else showResultFlash(0, 0, "tie");
+    });
+  }
+};
+
 // ============ BOOT ============
 (async function(){
   await loadMe();
   updateAccountUI();
   updateBalanceUI();
   updateBetUI();
+
+  setupCollapsibles();
+  setupChatPanel();
 
   try {
     const res = await fetch(API + "/api/game/leaderboard");
