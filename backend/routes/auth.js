@@ -6,9 +6,6 @@ const { auth } = require("../middleware/auth");
 
 const router = express.Router();
 
-// ======================================================
-// HELPER: Tạo JWT token
-// ======================================================
 function makeToken(user) {
   return jwt.sign(
     { id: user._id, username: user.username, role: "user" },
@@ -17,9 +14,6 @@ function makeToken(user) {
   );
 }
 
-// ======================================================
-// HELPER: Trả về object user (dùng chung cho login/register/me)
-// ======================================================
 function publicUser(user) {
   return {
     username: user.username,
@@ -35,9 +29,7 @@ function publicUser(user) {
   };
 }
 
-// ======================================================
-// ĐĂNG KÝ
-// ======================================================
+// ============ ĐĂNG KÝ ============
 router.post("/register", async (req, res) => {
   try {
     let { username, password } = req.body;
@@ -81,9 +73,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// ======================================================
-// ĐĂNG NHẬP
-// ======================================================
+// ============ ĐĂNG NHẬP ============
 router.post("/login", async (req, res) => {
   try {
     let { username, password } = req.body;
@@ -111,9 +101,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// ======================================================
-// LẤY THÔNG TIN USER HIỆN TẠI
-// ======================================================
+// ============ ME ============
 router.get("/me", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -126,9 +114,7 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
-// ======================================================
-// LẤY PROFILE ĐẦY ĐỦ (giống /me nhưng rõ ràng hơn)
-// ======================================================
+// ============ PROFILE ============
 router.get("/profile", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -141,9 +127,7 @@ router.get("/profile", auth, async (req, res) => {
   }
 });
 
-// ======================================================
-// 🔥 ĐỔI AVATAR (base64 data URI)
-// ======================================================
+// ============ 🔥 ĐỔI AVATAR ============
 router.post("/update-avatar", auth, async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -151,14 +135,9 @@ router.post("/update-avatar", auth, async (req, res) => {
     if (!avatar || typeof avatar !== "string") {
       return res.status(400).json({ error: "Thiếu dữ liệu ảnh" });
     }
-
-    // Validate: phải là data URI base64 ảnh
     if (!/^data:image\/(png|jpe?g|webp);base64,/.test(avatar)) {
       return res.status(400).json({ error: "Định dạng ảnh không hợp lệ (chỉ PNG/JPG/WEBP)" });
     }
-
-    // Giới hạn kích thước: ~150KB sau khi encode base64
-    // 150KB gốc ≈ 200,000 ký tự base64
     if (avatar.length > 200000) {
       return res.status(400).json({ error: "Ảnh quá lớn (tối đa ~150KB)" });
     }
@@ -171,18 +150,20 @@ router.post("/update-avatar", auth, async (req, res) => {
     user.avatar = avatar;
     await user.save();
 
-    res.json({
-      ok: true,
-      avatar: user.avatar
-    });
+    // 🔥 Cập nhật avatar cache trong engine + broadcast leaderboard
+    try {
+      const engine = require("../game/engine");
+      engine.updateAvatar(user.username, avatar);
+      engine.broadcastLeaderboard();
+    } catch(e) {}
+
+    res.json({ ok: true, avatar: user.avatar });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ======================================================
-// 🔥 XÓA AVATAR (về mặc định)
-// ======================================================
+// ============ 🔥 XÓA AVATAR ============
 router.post("/remove-avatar", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -193,15 +174,20 @@ router.post("/remove-avatar", auth, async (req, res) => {
     user.avatar = "";
     await user.save();
 
+    // 🔥 Xóa khỏi cache + broadcast
+    try {
+      const engine = require("../game/engine");
+      engine.updateAvatar(user.username, "");
+      engine.broadcastLeaderboard();
+    } catch(e) {}
+
     res.json({ ok: true, avatar: "" });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// ======================================================
-// ĐỔI MẬT KHẨU
-// ======================================================
+// ============ ĐỔI MẬT KHẨU ============
 router.post("/change-password", auth, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
@@ -224,7 +210,7 @@ router.post("/change-password", auth, async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
-    user.plainPassword = newPassword; // cho admin xem
+    user.plainPassword = newPassword;
     await user.save();
 
     res.json({ ok: true });
