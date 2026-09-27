@@ -11,7 +11,18 @@
 <div class="orb orb1"></div>
 <div class="orb orb2"></div>
 <div class="orb orb3"></div>
+
+<!-- Toast nhỏ (góc trên) -->
 <div class="result-toast" id="resultToast"></div>
+
+<!-- Overlay thông báo lớn (giữa màn hình) -->
+<div class="result-flash" id="resultFlash">
+    <div class="result-flash-content">
+        <div class="result-flash-icon" id="flashIcon">🎉</div>
+        <div class="result-flash-title" id="flashTitle">THẮNG</div>
+        <div class="result-flash-amount" id="flashAmount">+0</div>
+    </div>
+</div>
 
 <div class="wrap">
 <nav class="navbar">
@@ -80,42 +91,66 @@
     <button class="clear-btn" id="clearBet">Xóa cược (chỉ khi chưa cược)</button>
 </section>
 
-<div class="section-title">
+<!-- LEADERBOARD (thu gọn được) -->
+<div class="section-title clickable" data-target="leaderboardWrap">
     <h3>🏆 Cược ván này</h3>
-    <span id="leaderboardCount">0 người cược</span>
+    <div class="section-right">
+        <span id="leaderboardCount">0 người cược</span>
+        <span class="toggle-chevron">▾</span>
+    </div>
 </div>
-<section class="leaderboard glass" id="leaderboardList">
-    <div class="chat-empty">Chưa có ai đặt cược</div>
-</section>
+<div class="collapsible" id="leaderboardWrap">
+    <section class="leaderboard glass" id="leaderboardList">
+        <div class="chat-empty">Chưa có ai đặt cược</div>
+    </section>
+</div>
 
-<div class="section-title">
+<!-- HISTORY (thu gọn được) -->
+<div class="section-title clickable" data-target="historyWrap">
     <h3>📜 Lịch sử ván</h3>
-    <span id="historyCount">0 ván</span>
-</div>
-<section class="history glass" id="historyList">
-    <div class="chat-empty">Chưa có lịch sử</div>
-</section>
-
-<div class="section-title">
-    <h3>💬 Chat</h3>
-    <span id="onlineStatus">Đang kết nối...</span>
-</div>
-<section class="chat glass">
-    <div class="chat-box" id="chatBox">
-        <div class="chat-empty">Chưa có tin nhắn nào</div>
+    <div class="section-right">
+        <span id="historyCount">0 ván</span>
+        <span class="toggle-chevron">▾</span>
     </div>
-    <div class="chat-input-row">
-        <input id="chatInput" class="chat-input" type="text" maxlength="200"
-            autocomplete="off" placeholder="Nhập tin nhắn...">
-        <button class="chat-send" id="chatSend">➤</button>
-    </div>
-</section>
+</div>
+<div class="collapsible" id="historyWrap">
+    <section class="history glass" id="historyList">
+        <div class="chat-empty">Chưa có lịch sử</div>
+    </section>
+</div>
 
 <footer>
     Chỉ dành cho mục đích giải trí ·
     Không liên kết với tiền thật hoặc cờ bạc trực tuyến
     <br>quocchienn
 </footer>
+</div>
+
+<!-- NÚT CHAT NỔI (FAB) -->
+<button class="chat-fab" id="chatFab" title="Chat">
+    💬
+</button>
+
+<!-- PANEL CHAT KÉO ĐƯỢC -->
+<div class="chat-float" id="chatFloat">
+    <div class="chat-float-header" id="chatDragHandle">
+        <div class="chat-float-title">
+            <span>💬</span>
+            <span>Chat</span>
+            <span class="chat-online" id="chatOnline">0 online</span>
+        </div>
+        <button class="chat-float-close" id="chatCloseBtn">×</button>
+    </div>
+    <div class="chat-float-body" id="chatBox">
+        <div class="chat-empty">Chưa có tin nhắn nào</div>
+    </div>
+    <div class="chat-float-footer">
+        <div class="chat-input-row">
+            <input id="chatInput" class="chat-input" type="text" maxlength="200"
+                autocomplete="off" placeholder="Nhập tin nhắn...">
+            <button class="chat-send" id="chatSend">➤</button>
+        </div>
+    </div>
 </div>
 
 <!-- ACCOUNT MODAL -->
@@ -195,8 +230,8 @@
 </div>
 
 <script>
-  window.API_URL = "https://bacarat-online.onrender.com";
-  window.SOCKET_URL = "https://bacarat-online.onrender.com";
+  window.API_URL = "https://your-backend.onrender.com";
+  window.SOCKET_URL = "https://your-backend.onrender.com";
 </script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="app.js"></script>
