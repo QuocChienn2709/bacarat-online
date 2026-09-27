@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Admin - Baccarat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="container">
+
+  <!-- LOGIN -->
+  <div class="login-box" id="loginBox">
+    <h2 style="text-align:center;margin-top:0">🔐 Admin Login</h2>
+    <input id="adminUser" placeholder="Username" value="admin">
+    <input id="adminPass" type="password" placeholder="Password">
+    <button onclick="Admin.login()" style="width:100%;margin-top:10px">Đăng nhập</button>
+    <p id="loginMsg" class="msg-error"></p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="hidden">
+    <div class="header">
+      <h1 style="margin:0">👑 Quản lý người chơi</h1>
+      <button class="danger" onclick="Admin.logout()">Đăng xuất</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <small>Tổng người chơi</small>
+        <strong id="totalUsers">0</strong>
+      </div>
+      <div class="stat-card">
+        <small>Tổng số dư</small>
+        <strong id="totalBalance">0</strong>
+      </div>
+      <div class="stat-card">
+        <small>Tổng ván đã chơi</small>
+        <strong id="totalRounds">0</strong>
+      </div>
+    </div>
+
+    <input class="search" id="search" placeholder="🔍 Tìm kiếm username..." oninput="Admin.renderUsers()">
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Mật khẩu</th>
+            <th>Số dư</th>
+            <th>Chuỗi thắng</th>
+            <th>Số ván</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="usersTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CỘNG/TRỪ TIỀN -->
+<div class="modal" id="moneyModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Cộng tiền</h3>
+    <p>User: <b id="modalUser"></b></p>
+    <p>Số dư hiện tại: <b class="balance" id="modalBalance"></b></p>
+    <input id="modalAmount" type="number" placeholder="Nhập số tiền" min="0">
+    <div class="modal-actions">
+      <button class="success" onclick="Admin.submitMoney()" style="flex:1">Xác nhận</button>
+      <button class="danger" onclick="Admin.closeModal()" style="flex:1">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 👈 ĐỔI THÀNH URL RENDER CỦA BẠN
+  window.API_URL = "https://your-backend.onrender.com";
+</script>
+<script src="admin.js"></script>
+</body>
+</html>

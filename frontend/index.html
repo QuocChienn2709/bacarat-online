@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0e1a">
+<title>Baccarat Online</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+<div class="result-toast" id="resultToast"></div>
+
+<div class="wrap">
+<nav class="navbar">
+    <div class="brand">
+        <div class="brand-icon">♠</div>
+        <span>Baccarat</span>
+    </div>
+    <div class="nav-right">
+        <span class="online-badge" id="onlineBadge" title="Người chơi online">
+            <span id="onlineCount">0</span> online
+        </span>
+        <span class="handle" id="usernameDisplay">Chưa đăng nhập</span>
+        <button class="account-mini" id="accountBtn">Tài khoản</button>
+        <button class="theme-btn" id="themeBtn">🌙</button>
+    </div>
+</nav>
+
+<div class="stats">
+    <div class="stat glass"><small>Số dư</small><strong id="balance">1,000</strong></div>
+    <div class="stat glass"><small>Chuỗi thắng</small><strong id="streak">0</strong></div>
+    <div class="stat glass"><small>Số ván</small><strong id="rounds">0</strong></div>
+</div>
+
+<section class="table glass">
+    <div class="table-title">
+        <div class="phase" id="phase">ĐANG ĐẶT CƯỢC</div>
+        <div class="countdown" id="countdown">10</div>
+    </div>
+    <div class="hands">
+        <div class="hand" id="playerHand">
+            <div class="hand-head">
+                <span>PLAYER</span>
+                <span class="score" id="playerScore">0</span>
+            </div>
+            <div class="cards" id="playerCards"></div>
+        </div>
+        <div class="hand" id="bankerHand">
+            <div class="hand-head">
+                <span>BANKER</span>
+                <span class="score" id="bankerScore">0</span>
+            </div>
+            <div class="cards" id="bankerCards"></div>
+        </div>
+    </div>
+</section>
+
+<section class="bet-panel glass">
+    <div class="chips">
+        <button class="chip" data-chip="10">10</button>
+        <button class="chip active" data-chip="25">25</button>
+        <button class="chip" data-chip="50">50</button>
+        <button class="chip" data-chip="100">100</button>
+        <button class="chip" data-chip="500">500</button>
+    </div>
+    <div class="bet-options">
+        <button class="bet-option" data-side="player">
+            <strong>PLAYER</strong><span id="playerBet">0</span>
+        </button>
+        <button class="bet-option" data-side="tie">
+            <strong>TIE</strong><span id="tieBet">0</span>
+        </button>
+        <button class="bet-option" data-side="banker">
+            <strong>BANKER</strong><span id="bankerBet">0</span>
+        </button>
+    </div>
+    <button class="clear-btn" id="clearBet">Xóa cược (chỉ khi chưa cược)</button>
+</section>
+
+<div class="section-title">
+    <h3>🏆 Cược ván này</h3>
+    <span id="leaderboardCount">0 người cược</span>
+</div>
+<section class="leaderboard glass" id="leaderboardList">
+    <div class="chat-empty">Chưa có ai đặt cược</div>
+</section>
+
+<div class="section-title">
+    <h3>📜 Lịch sử ván</h3>
+    <span id="historyCount">0 ván</span>
+</div>
+<section class="history glass" id="historyList">
+    <div class="chat-empty">Chưa có lịch sử</div>
+</section>
+
+<div class="section-title">
+    <h3>💬 Chat</h3>
+    <span id="onlineStatus">Đang kết nối...</span>
+</div>
+<section class="chat glass">
+    <div class="chat-box" id="chatBox">
+        <div class="chat-empty">Chưa có tin nhắn nào</div>
+    </div>
+    <div class="chat-input-row">
+        <input id="chatInput" class="chat-input" type="text" maxlength="200"
+            autocomplete="off" placeholder="Nhập tin nhắn...">
+        <button class="chat-send" id="chatSend">➤</button>
+    </div>
+</section>
+
+<footer>
+    Chỉ dành cho mục đích giải trí ·
+    Không liên kết với tiền thật hoặc cờ bạc trực tuyến
+    <br>quocchienn
+</footer>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="account-overlay" id="accountOverlay">
+    <div class="account-modal">
+        <button class="account-close" id="closeAccountBtn">×</button>
+        <div class="account-logo">♠</div>
+        <h2>Tài khoản</h2>
+        <p class="account-sub">Đăng nhập hoặc tạo tài khoản</p>
+
+        <div id="authArea">
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-auth="login">Đăng nhập</button>
+                <button class="auth-tab" data-auth="register">Tạo tài khoản</button>
+            </div>
+            <div class="auth-message" id="authMessage"></div>
+
+            <form class="auth-form active" id="loginForm">
+                <input id="loginUsername" type="text" maxlength="30"
+                    autocomplete="username" placeholder="Tên tài khoản" required>
+                <input id="loginPassword" type="password"
+                    autocomplete="current-password" placeholder="Mật khẩu" required>
+                <button class="main-btn" type="submit">Đăng nhập</button>
+            </form>
+
+            <form class="auth-form" id="registerForm">
+                <input id="registerUsername" type="text" maxlength="30"
+                    autocomplete="username" placeholder="Tên tài khoản" required>
+                <input id="registerPassword" type="password"
+                    autocomplete="new-password" placeholder="Mật khẩu" required>
+                <input id="registerPassword2" type="password"
+                    autocomplete="new-password" placeholder="Nhập lại mật khẩu" required>
+                <button class="main-btn" type="submit">Tạo tài khoản</button>
+            </form>
+        </div>
+
+        <div id="profileView" style="display:none"></div>
+
+        <div id="changePassArea" style="display:none">
+            <h3 style="margin-top:0">🔒 Đổi mật khẩu</h3>
+            <form id="changePassForm" class="auth-form active">
+                <input id="oldPassword" type="password" placeholder="Mật khẩu hiện tại" required>
+                <input id="newPassword" type="password" placeholder="Mật khẩu mới" required>
+                <input id="newPassword2" type="password" placeholder="Nhập lại mật khẩu mới" required>
+                <div id="changePassMsg" style="min-height:16px;font-size:11px"></div>
+                <button class="main-btn" type="submit">Xác nhận đổi</button>
+                <button class="clear-btn" type="button" id="backToProfile">Quay lại</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- HISTORY DETAIL -->
+<div class="account-overlay" id="historyOverlay">
+    <div class="account-modal">
+        <button class="account-close" id="closeHistoryBtn">×</button>
+        <div class="account-logo" id="historyResultIcon">?</div>
+        <h2 id="historyTitle">Ván #0</h2>
+        <p class="account-sub" id="historySub">—</p>
+        <div class="hands" style="margin-top:6px">
+            <div class="hand">
+                <div class="hand-head">
+                    <span>PLAYER</span>
+                    <span class="score" id="historyPlayerScore">0</span>
+                </div>
+                <div class="cards" id="historyPlayerCards"></div>
+            </div>
+            <div class="hand">
+                <div class="hand-head">
+                    <span>BANKER</span>
+                    <span class="score" id="historyBankerScore">0</span>
+                </div>
+                <div class="cards" id="historyBankerCards"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+  window.API_URL = "https://your-backend.onrender.com";
+  window.SOCKET_URL = "https://your-backend.onrender.com";
+</script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
