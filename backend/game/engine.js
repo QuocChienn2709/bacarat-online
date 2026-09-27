@@ -8,10 +8,10 @@ const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const DECKS = 8;
 
 const BET_SECONDS = 10;
-const DEAL_PAUSE = 900;
-const FLIP_DELAY = 500;
-const BETWEEN_PHASE = 990;
-const RESULT_SECONDS = 4500;
+const DEAL_PAUSE = 1500;
+const FLIP_DELAY = 600;
+const BETWEEN_PHASE = 1500;
+const RESULT_SECONDS = 5000;
 
 function buildShoe() {
   const shoe = [];
@@ -283,6 +283,18 @@ class GameEngine extends EventEmitter {
           user.balance += winReturn;
           user.streak = won ? user.streak + 1 : 0;
           user.roundsPlayed += 1;
+
+          // 🔥 Cập nhật thống kê tổng
+          user.totalBet = (user.totalBet || 0) + stake;
+          if (won) {
+            user.totalWin = (user.totalWin || 0) + winReturn;
+            user.totalWins = (user.totalWins || 0) + 1;
+            if (user.streak > (user.bestStreak || 0)) {
+              user.bestStreak = user.streak;
+            }
+          }
+          user.totalNet = (user.totalNet || 0) + net;
+
           await user.save();
           settlements.push({ username, balance: user.balance, net, won });
         }
