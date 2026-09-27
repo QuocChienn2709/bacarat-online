@@ -9,8 +9,8 @@ const DECKS = 8;
 
 const BET_SECONDS = 10;
 const DEAL_PAUSE = 900;
-const FLIP_DELAY = 300;
-const BETWEEN_PHASE = 850;
+const FLIP_DELAY = 500;
+const BETWEEN_PHASE = 990;
 const RESULT_SECONDS = 4500;
 
 function buildShoe() {
