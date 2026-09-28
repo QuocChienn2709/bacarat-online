@@ -309,17 +309,16 @@
     </div>
 </div>
 
-<!-- 🔊 SOUND SETTINGS MODAL -->
+<!-- 🔊 SOUND SETTINGS MODAL (chỉ toggle + volume) -->
 <div class="account-overlay" id="soundOverlay">
-    <div class="account-modal" style="max-width:500px">
+    <div class="account-modal" style="max-width:400px">
         <button class="account-close" id="closeSoundBtn">×</button>
         <div class="account-logo" style="background:linear-gradient(135deg,#5b8cff,#7c5cff);font-size:30px">
             🔊
         </div>
-        <h2>Cài đặt âm thanh</h2>
-        <p class="account-sub">Tự thêm âm thanh của riêng bạn cho từng sự kiện</p>
+        <h2>Âm thanh</h2>
+        <p class="account-sub">Bật/tắt và điều chỉnh âm lượng</p>
 
-        <!-- Master toggle -->
         <div class="sound-master">
             <label class="sound-toggle">
                 <input type="checkbox" id="soundEnabled" checked>
@@ -328,116 +327,18 @@
             </label>
         </div>
 
-        <!-- Volume -->
         <div class="sound-volume-row">
-            <span class="sound-volume-label">Âm lượng</span>
+            <span class="sound-volume-label">🔊</span>
             <input type="range" id="soundVolume" min="0" max="100" value="80"
                 class="sound-volume-slider">
             <span class="sound-volume-value" id="soundVolumeValue">80%</span>
         </div>
 
-        <!-- Sound slots -->
-        <div class="sound-slots" id="soundSlots">
-            <!-- Slot: chia bài -->
-            <div class="sound-slot" data-key="deal">
-                <div class="sound-slot-info">
-                    <div class="sound-slot-icon">🎴</div>
-                    <div class="sound-slot-text">
-                        <strong>Chia bài</strong>
-                        <small>Phát khi dealer lật lá</small>
-                    </div>
-                </div>
-                <div class="sound-slot-actions">
-                    <input type="file" class="sound-input" data-key="deal"
-                        accept="audio/*" style="display:none">
-                    <button class="sound-btn upload" data-key="deal">📁</button>
-                    <button class="sound-btn test" data-key="deal">▶️</button>
-                    <button class="sound-btn delete" data-key="deal">🗑️</button>
-                </div>
-                <div class="sound-slot-status" data-key="deal">Chưa có âm thanh</div>
-            </div>
+        <div class="sound-available" id="soundAvailableList"></div>
 
-            <!-- Slot: thắng -->
-            <div class="sound-slot" data-key="win">
-                <div class="sound-slot-info">
-                    <div class="sound-slot-icon">🎉</div>
-                    <div class="sound-slot-text">
-                        <strong>Thắng</strong>
-                        <small>Phát khi bạn thắng ván</small>
-                    </div>
-                </div>
-                <div class="sound-slot-actions">
-                    <input type="file" class="sound-input" data-key="win"
-                        accept="audio/*" style="display:none">
-                    <button class="sound-btn upload" data-key="win">📁</button>
-                    <button class="sound-btn test" data-key="win">▶️</button>
-                    <button class="sound-btn delete" data-key="win">🗑️</button>
-                </div>
-                <div class="sound-slot-status" data-key="win">Chưa có âm thanh</div>
-            </div>
-
-            <!-- Slot: thua -->
-            <div class="sound-slot" data-key="lose">
-                <div class="sound-slot-info">
-                    <div class="sound-slot-icon">😔</div>
-                    <div class="sound-slot-text">
-                        <strong>Thua</strong>
-                        <small>Phát khi bạn thua ván</small>
-                    </div>
-                </div>
-                <div class="sound-slot-actions">
-                    <input type="file" class="sound-input" data-key="lose"
-                        accept="audio/*" style="display:none">
-                    <button class="sound-btn upload" data-key="lose">📁</button>
-                    <button class="sound-btn test" data-key="lose">▶️</button>
-                    <button class="sound-btn delete" data-key="lose">🗑️</button>
-                </div>
-                <div class="sound-slot-status" data-key="lose">Chưa có âm thanh</div>
-            </div>
-
-            <!-- Slot: click -->
-            <div class="sound-slot" data-key="click">
-                <div class="sound-slot-info">
-                    <div class="sound-slot-icon">🖱️</div>
-                    <div class="sound-slot-text">
-                        <strong>Click</strong>
-                        <small>Phát khi bấm nút</small>
-                    </div>
-                </div>
-                <div class="sound-slot-actions">
-                    <input type="file" class="sound-input" data-key="click"
-                        accept="audio/*" style="display:none">
-                    <button class="sound-btn upload" data-key="click">📁</button>
-                    <button class="sound-btn test" data-key="click">▶️</button>
-                    <button class="sound-btn delete" data-key="click">🗑️</button>
-                </div>
-                <div class="sound-slot-status" data-key="click">Chưa có âm thanh</div>
-            </div>
-
-            <!-- Slot: dealer -->
-            <div class="sound-slot" data-key="dealer">
-                <div class="sound-slot-info">
-                    <div class="sound-slot-icon">🎩</div>
-                    <div class="sound-slot-text">
-                        <strong>Dealer nói</strong>
-                        <small>Phát khi dealer gửi tin nhắn</small>
-                    </div>
-                </div>
-                <div class="sound-slot-actions">
-                    <input type="file" class="sound-input" data-key="dealer"
-                        accept="audio/*" style="display:none">
-                    <button class="sound-btn upload" data-key="dealer">📁</button>
-                    <button class="sound-btn test" data-key="dealer">▶️</button>
-                    <button class="sound-btn delete" data-key="dealer">🗑️</button>
-                </div>
-                <div class="sound-slot-status" data-key="dealer">Chưa có âm thanh</div>
-            </div>
+        <div class="sound-note">
+         Bạn có thể bật/tắt và điều chỉnh âm lượng.
         </div>
-
-        <button class="danger-btn" id="resetAllSoundsBtn" type="button"
-            style="width:100%;margin-top:14px">
-            🗑️ Xóa tất cả âm thanh
-        </button>
     </div>
 </div>
 
