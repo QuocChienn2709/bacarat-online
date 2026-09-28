@@ -52,7 +52,7 @@ const DEALER_EMOJIS = [
 
 const SOUND_KEYS = ["betWarning", "betStop", "deal", "win", "lose", "click", "dealer"];
 const SOUND_META = {
-    betWarning: { icon: "⏰", name: "Cảnh báo 4s" },
+    betWarning: { icon: "⏰", name: "Cảnh báo 10s" },
     betStop:    { icon: "🛑", name: "Dừng đặt cược" },
     deal:       { icon: "🎴", name: "Lật bài" },
     win:        { icon: "🎉", name: "Thắng" },
