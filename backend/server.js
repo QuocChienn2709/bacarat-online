@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const gameRoutes = require("./routes/game");
 const chatRoutes = require("./routes/chat");
 const adminRoutes = require("./routes/admin");
+const codeRoutes = require("./routes/codes");
 const Chat = require("./models/Chat");
 const User = require("./models/User");
 const engine = require("./game/engine");
