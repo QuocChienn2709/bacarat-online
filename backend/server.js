@@ -26,6 +26,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/codes", codeRoutes);
 app.get("/", (req, res) => res.json({ ok: true, service: "baccarat v2" }));
 
 // ============ SOCKET.IO ============
