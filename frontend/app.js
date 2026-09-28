@@ -29,19 +29,39 @@ let chatOpen = false;
 let chatUnread = 0;
 let pendingAvatar = "";
 let _chatCache = [];
-let currentDealer = localStorage.getItem("bac_dealer") || "🎩";
-let dealerMessageTimer = null;
+
+// ===== DEALER STATE =====
+let currentDealerEmoji = localStorage.getItem("bac_dealer_emoji") || "🎩";
+let currentDealerImage = localStorage.getItem("bac_dealer_image") || "";
 let lastDealerPhase = "";
 let lastDealerResult = "";
-const el = id => document.getElementById(id);
+
+// ===== SOUND STATE =====
+let sounds = {};
+let soundsEnabled = true;
+let soundsVolume = 0.8;
+
 const DEALER_EMOJIS = [
     "🎩", "👨‍💼", "👩‍💼", "🤵",
     "👑", "🦁", "🐯", "🎭",
     "🃏", "🎰", "🤠", "🧙"
 ];
+
+const SOUND_KEYS = ["deal", "win", "lose", "click", "dealer"];
+const SOUND_LABELS = {
+    deal: "Chia bài",
+    win: "Thắng",
+    lose: "Thua",
+    click: "Click",
+    dealer: "Dealer nói"
+};
+
+const el = id => document.getElementById(id);
+
 function escapeHTML(t){
   return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/&#039;/g,"&#039;")
+    .replace(/'/g,"&#039;");
 }
 
 async function api(path, options={}) {
@@ -55,7 +75,382 @@ async function api(path, options={}) {
   return data;
 }
 
-// ============ COLLAPSIBLES ============
+// =====================================================
+// 🔊 SOUND MANAGER
+// =====================================================
+function loadSounds(){
+    try {
+        const raw = localStorage.getItem("bac_sounds");
+        if (raw) sounds = JSON.parse(raw) || {};
+    } catch(e) { sounds = {}; }
+
+    soundsEnabled = localStorage.getItem("bac_sounds_enabled") !== "0";
+    soundsVolume = Number(localStorage.getItem("bac_sounds_volume")) || 0.8;
+}
+
+function saveSounds(){
+    try {
+        localStorage.setItem("bac_sounds", JSON.stringify(sounds));
+        localStorage.setItem("bac_sounds_enabled", soundsEnabled ? "1" : "0");
+        localStorage.setItem("bac_sounds_volume", String(soundsVolume));
+        return true;
+    } catch(e) {
+        if (e.name === "QuotaExceededError") {
+            alert("⚠️ Bộ nhớ đầy! File âm thanh quá lớn. Vui lòng dùng file nhỏ hơn (< 1MB) hoặc xóa bớt âm thanh khác.");
+            return false;
+        }
+        return false;
+    }
+}
+
+function playSound(key){
+    if (!soundsEnabled) return;
+    const src = sounds[key];
+    if (!src) return;
+    try {
+        const audio = new Audio(src);
+        audio.volume = Math.max(0, Math.min(1, soundsVolume));
+        audio.play().catch(() => {});
+    } catch(e) {}
+}
+
+function setupSoundSettings(){
+    loadSounds();
+
+    el("soundBtn").addEventListener("click", () => {
+        renderSoundSettings();
+        el("soundOverlay").classList.add("show");
+    });
+    el("closeSoundBtn").addEventListener("click", () => {
+        el("soundOverlay").classList.remove("show");
+    });
+    el("soundOverlay").addEventListener("click", e => {
+        if (e.target === el("soundOverlay"))
+            el("soundOverlay").classList.remove("show");
+    });
+
+    const soundEnabledEl = el("soundEnabled");
+    soundEnabledEl.checked = soundsEnabled;
+    updateSoundEnabledLabel();
+    soundEnabledEl.addEventListener("change", () => {
+        soundsEnabled = soundEnabledEl.checked;
+        updateSoundEnabledLabel();
+        saveSounds();
+    });
+
+    const volEl = el("soundVolume");
+    volEl.value = Math.round(soundsVolume * 100);
+    el("soundVolumeValue").textContent = volEl.value + "%";
+    volEl.addEventListener("input", () => {
+        soundsVolume = Number(volEl.value) / 100;
+        el("soundVolumeValue").textContent = volEl.value + "%";
+        saveSounds();
+    });
+
+    document.querySelectorAll(".sound-input").forEach(input => {
+        input.addEventListener("change", async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const key = input.dataset.key;
+
+            if (!file.type.startsWith("audio/")) {
+                alert("Vui lòng chọn file âm thanh");
+                input.value = "";
+                return;
+            }
+            if (file.size > 1024 * 1024) {
+                if (!confirm("File lớn hơn 1MB có thể gây đầy bộ nhớ. Tiếp tục?")) {
+                    input.value = "";
+                    return;
+                }
+            }
+
+            try {
+                const base64 = await fileToBase64(file);
+                sounds[key] = base64;
+                if (!saveSounds()) {
+                    delete sounds[key];
+                    input.value = "";
+                    return;
+                }
+                renderSoundSettings();
+            } catch(err) {
+                alert("Lỗi đọc file: " + err.message);
+            }
+            input.value = "";
+        });
+    });
+
+    document.querySelectorAll(".sound-btn.upload").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const key = btn.dataset.key;
+            const input = document.querySelector(`.sound-input[data-key="${key}"]`);
+            if (input) input.click();
+        });
+    });
+
+    document.querySelectorAll(".sound-btn.test").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const key = btn.dataset.key;
+            if (!sounds[key]) {
+                alert("Chưa có âm thanh. Bấm 📁 để tải lên.");
+                return;
+            }
+            playSound(key);
+        });
+    });
+
+    document.querySelectorAll(".sound-btn.delete").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const key = btn.dataset.key;
+            if (!sounds[key]) return;
+            if (!confirm(`Xóa âm thanh "${SOUND_LABELS[key]}"?`)) return;
+            delete sounds[key];
+            saveSounds();
+            renderSoundSettings();
+        });
+    });
+
+    el("resetAllSoundsBtn").addEventListener("click", () => {
+        if (!confirm("Xóa TẤT CẢ âm thanh đã tải lên?")) return;
+        sounds = {};
+        saveSounds();
+        renderSoundSettings();
+    });
+}
+
+function updateSoundEnabledLabel(){
+    const lbl = el("soundEnabledLabel");
+    if (lbl) lbl.textContent = soundsEnabled ? "Bật âm thanh" : "Tắt âm thanh";
+}
+
+function renderSoundSettings(){
+    SOUND_KEYS.forEach(key => {
+        const slot = document.querySelector(`.sound-slot[data-key="${key}"]`);
+        const status = document.querySelector(`.sound-slot-status[data-key="${key}"]`);
+        if (!slot || !status) return;
+
+        if (sounds[key]) {
+            slot.classList.add("has-sound");
+            status.textContent = "✅ Đã có âm thanh";
+        } else {
+            slot.classList.remove("has-sound");
+            status.textContent = "Chưa có âm thanh";
+        }
+    });
+}
+
+function fileToBase64(file){
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// =====================================================
+// 🎩 DEALER
+// =====================================================
+function setupDealer(){
+    const avatar = el("dealerAvatar");
+    if (avatar) {
+        renderDealerAvatar();
+        avatar.addEventListener("click", openDealerPicker);
+    }
+
+    el("closeDealerBtn").addEventListener("click", () => {
+        el("dealerOverlay").classList.remove("show");
+    });
+    el("dealerOverlay").addEventListener("click", e => {
+        if (e.target === el("dealerOverlay"))
+            el("dealerOverlay").classList.remove("show");
+    });
+
+    el("uploadDealerBtn").addEventListener("click", () => {
+        el("dealerImageInput").click();
+    });
+
+    el("dealerImageInput").addEventListener("change", async e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            alert("Vui lòng chọn file ảnh");
+            return;
+        }
+        try {
+            const resized = await resizeDealerImage(file, 256, 0.85);
+            currentDealerImage = resized;
+            try {
+                localStorage.setItem("bac_dealer_image", resized);
+            } catch(err) {
+                if (err.name === "QuotaExceededError") {
+                    alert("Ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn.");
+                    currentDealerImage = "";
+                    localStorage.removeItem("bac_dealer_image");
+                    return;
+                }
+            }
+            renderDealerAvatar();
+            renderDealerPicker();
+            updateDealerMessage("Xin chào! Tôi sẽ chia bài cho bạn 🎴", true);
+            setTimeout(() => {
+                el("dealerOverlay").classList.remove("show");
+            }, 400);
+        } catch(err) {
+            alert("Lỗi xử lý ảnh: " + err.message);
+        }
+        el("dealerImageInput").value = "";
+    });
+
+    el("removeDealerImageBtn").addEventListener("click", () => {
+        if (!confirm("Xóa ảnh dealer và quay về emoji?")) return;
+        currentDealerImage = "";
+        localStorage.removeItem("bac_dealer_image");
+        renderDealerAvatar();
+        renderDealerPicker();
+    });
+
+    renderDealerPicker();
+    updateDealerMessage("Chào mừng! Đặt cược đi nào 🎰");
+}
+
+function renderDealerAvatar(){
+    const avatar = el("dealerAvatar");
+    if (!avatar) return;
+    if (currentDealerImage) {
+        avatar.innerHTML = `<img src="${currentDealerImage}" alt="dealer">`;
+    } else {
+        avatar.innerHTML = `<span id="dealerEmoji">${currentDealerEmoji}</span>`;
+    }
+}
+
+function openDealerPicker(){
+    renderDealerPicker();
+    el("dealerOverlay").classList.add("show");
+}
+
+function renderDealerPicker(){
+    const box = el("dealerPicker");
+    if (!box) return;
+
+    const removeBtn = el("removeDealerImageBtn");
+    if (removeBtn) {
+        removeBtn.style.display = currentDealerImage ? "block" : "none";
+    }
+
+    box.innerHTML = DEALER_EMOJIS.map(emoji => {
+        const active = !currentDealerImage && emoji === currentDealerEmoji;
+        return `
+            <div class="dealer-option ${active ? "active" : ""}"
+                data-emoji="${emoji}">${emoji}</div>
+        `;
+    }).join("");
+
+    box.querySelectorAll(".dealer-option").forEach(opt => {
+        opt.addEventListener("click", () => {
+            const emoji = opt.dataset.emoji;
+            currentDealerEmoji = emoji;
+            currentDealerImage = "";
+            localStorage.setItem("bac_dealer_emoji", emoji);
+            localStorage.removeItem("bac_dealer_image");
+            renderDealerAvatar();
+            renderDealerPicker();
+            updateDealerMessage("Cảm ơn! Tôi sẽ chia bài cho bạn 🎴", true);
+            setTimeout(() => {
+                el("dealerOverlay").classList.remove("show");
+            }, 400);
+        });
+    });
+}
+
+function updateDealerMessage(text, force = false){
+    const textEl = el("dealerText");
+    const bubble = textEl?.parentElement;
+    if (!textEl) return;
+    if (!force && textEl.textContent === text) return;
+
+    textEl.textContent = text;
+
+    if (bubble) {
+        bubble.classList.remove("updating");
+        void bubble.offsetWidth;
+        bubble.classList.add("updating");
+    }
+
+    const avatar = el("dealerAvatar");
+    if (avatar && !avatar.classList.contains("dealing")) {
+        avatar.classList.remove("talking");
+        void avatar.offsetWidth;
+        avatar.classList.add("talking");
+        setTimeout(() => avatar.classList.remove("talking"), 500);
+    }
+
+    if (!force) playSound("dealer");
+}
+
+function getDealerMessage(){
+    if (phase === "betting") {
+        if (countdown <= 3 && countdown > 0) {
+            return `⏰ Nhanh lên! Còn ${countdown} giây!`;
+        }
+        const msgs = [
+            "🎰 Đặt cược đi nào!",
+            "💰 Chọn cửa may mắn nào!",
+            "🎴 Cửa nào đây?",
+            "🍀 Chúc bạn may mắn!",
+            "✨ Cược xong chưa nào?",
+            "🎲 Tay chơi lớn đây rồi!"
+        ];
+        return msgs[Math.floor(Math.random() * msgs.length)];
+    }
+    if (phase === "dealing") return "🎴 Chia bài...";
+    if (phase === "result") {
+        if (result === "player") return "🎉 PLAYER thắng!";
+        if (result === "banker") return "🎉 BANKER thắng!";
+        return "🤝 Hòa!";
+    }
+    return "🎩";
+}
+
+function triggerDealerDealAnimation(){
+    const avatar = el("dealerAvatar");
+    if (!avatar) return;
+    avatar.classList.remove("dealing");
+    void avatar.offsetWidth;
+    avatar.classList.add("dealing");
+    setTimeout(() => avatar.classList.remove("dealing"), 700);
+    playSound("deal");
+}
+
+function resizeDealerImage(file, maxSize = 256, quality = 0.85){
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let { width, height } = img;
+                const side = Math.min(width, height);
+                const sx = (width - side) / 2;
+                const sy = (height - side) / 2;
+                canvas.width = maxSize;
+                canvas.height = maxSize;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+                resolve(canvas.toDataURL("image/jpeg", quality));
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// =====================================================
+// COLLAPSIBLES
+// =====================================================
 function setupCollapsibles(){
   document.querySelectorAll(".section-title.clickable").forEach(title => {
     title.addEventListener("click", () => {
@@ -77,7 +472,9 @@ function setupCollapsibles(){
   });
 }
 
-// ============ CHAT PANEL ============
+// =====================================================
+// CHAT PANEL
+// =====================================================
 function setupChatPanel(){
   const fab = el("chatFab");
   const closeBtn = el("chatCloseBtn");
@@ -158,7 +555,9 @@ function setupChatDrag(){
   document.addEventListener("touchend", onEnd);
 }
 
-// ============ 🎁 CODE ============
+// =====================================================
+// CODE MODAL
+// =====================================================
 function setupCodeModal(){
   const codeBtn = el("codeBtn");
   const closeBtn = el("closeCodeBtn");
@@ -211,9 +610,9 @@ function setupCodeModal(){
       msg.textContent = `🎉 Nhận thành công ${res.value.toLocaleString("vi-VN")} VNĐ!`;
       msg.style.color = "var(--good)";
       input.value = "";
-      // Hiệu ứng
       showCodeSuccessFlash(res.value);
       loadCodeHistory();
+      playSound("win");
     })
     .catch(err => {
       msg.textContent = "❌ " + err.message;
@@ -279,7 +678,9 @@ function showCodeSuccessFlash(amount){
   flash._timer = setTimeout(() => flash.classList.remove("show"), 2700);
 }
 
-// ============ AVATAR EDITOR ============
+// =====================================================
+// AVATAR EDITOR
+// =====================================================
 function setupAvatarEditor(){
   const input = el("avatarInput");
   const chooseBtn = el("chooseAvatarBtn");
@@ -374,120 +775,10 @@ function resizeImage(file, maxSize = 128, quality = 0.85){
     reader.readAsDataURL(file);
   });
 }
-// ============ 🎩 DEALER ============
-function setupDealer(){
-    // Set avatar ban đầu
-    const avatar = el("dealerAvatar");
-    if (avatar) {
-        avatar.textContent = currentDealer;
-        avatar.addEventListener("click", openDealerPicker);
-    }
 
-    el("closeDealerBtn").addEventListener("click", () => {
-        el("dealerOverlay").classList.remove("show");
-    });
-
-    el("dealerOverlay").addEventListener("click", e => {
-        if (e.target === el("dealerOverlay")) {
-            el("dealerOverlay").classList.remove("show");
-        }
-    });
-
-    renderDealerPicker();
-}
-
-function openDealerPicker(){
-    renderDealerPicker();
-    el("dealerOverlay").classList.add("show");
-}
-
-function renderDealerPicker(){
-    const box = el("dealerPicker");
-    if (!box) return;
-    box.innerHTML = DEALER_EMOJIS.map(e => `
-        <div class="dealer-option ${e === currentDealer ? "active" : ""}"
-            data-emoji="${e}">${e}</div>
-    `).join("");
-
-    box.querySelectorAll(".dealer-option").forEach(opt => {
-        opt.addEventListener("click", () => {
-            const emoji = opt.dataset.emoji;
-            currentDealer = emoji;
-            localStorage.setItem("bac_dealer", emoji);
-            el("dealerAvatar").textContent = emoji;
-            renderDealerPicker();
-            // Hiệu ứng chào
-            updateDealerMessage("Cảm ơn! Tôi sẽ chia bài cho bạn 🎴", true);
-            setTimeout(() => {
-                el("dealerOverlay").classList.remove("show");
-            }, 400);
-        });
-    });
-}
-
-// Cập nhật bong bóng nói của dealer
-function updateDealerMessage(text, force = false){
-    const bubble = el("dealerBubble") || el("dealerText")?.parentElement;
-    const textEl = el("dealerText");
-    if (!textEl) return;
-
-    if (!force && textEl.textContent === text) return;
-
-    textEl.textContent = text;
-
-    if (bubble) {
-        bubble.classList.remove("updating");
-        void bubble.offsetWidth;
-        bubble.classList.add("updating");
-    }
-
-    // Animation "đang nói"
-    const avatar = el("dealerAvatar");
-    if (avatar && !avatar.classList.contains("dealing")) {
-        avatar.classList.remove("talking");
-        void avatar.offsetWidth;
-        avatar.classList.add("talking");
-        setTimeout(() => avatar.classList.remove("talking"), 500);
-    }
-}
-
-// Xác định câu nói theo phase
-function getDealerMessage(){
-    if (phase === "betting") {
-        if (countdown <= 3 && countdown > 0) {
-            return `⏰ Nhanh lên! Còn ${countdown} giây!`;
-        }
-        const bettingMsgs = [
-            "🎰 Đặt cược đi nào!",
-            "💰 Chọn cửa may mắn nào!",
-            "🎴 Cửa nào đây?",
-            "🍀 Chúc bạn may mắn!",
-            "✨ Cược xong chưa nào?",
-            "🎲 Tay chơi lớn đây rồi!"
-        ];
-        return bettingMsgs[Math.floor(Math.random() * bettingMsgs.length)];
-    }
-    if (phase === "dealing") {
-        return "🎴 Chia bài...";
-    }
-    if (phase === "result") {
-        if (result === "player") return "🎉 PLAYER thắng!";
-        if (result === "banker") return "🎉 BANKER thắng!";
-        return "🤝 Hòa!";
-    }
-    return "🎩";
-}
-
-// Hiệu ứng dealer "lắc mình" khi chia
-function triggerDealerDealAnimation(){
-    const avatar = el("dealerAvatar");
-    if (!avatar) return;
-    avatar.classList.remove("dealing");
-    void avatar.offsetWidth;
-    avatar.classList.add("dealing");
-    setTimeout(() => avatar.classList.remove("dealing"), 700);
-}
-// ============ CUSTOM BET + ALL-IN ============
+// =====================================================
+// CUSTOM BET + ALL-IN
+// =====================================================
 function setupCustomBet(){
   const customBtn = el("customChipBtn");
   const customRow = el("customBetRow");
@@ -589,7 +880,9 @@ function updateAllInText(){
     : "🔥 ALL-IN";
 }
 
-// ============ TOP PLAYERS ============
+// =====================================================
+// TOP PLAYERS
+// =====================================================
 function setupTopTabs(){
   document.querySelectorAll(".top-tab").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -654,7 +947,9 @@ function renderTopPlayers(){
   }).join("");
 }
 
-// ============ SOCKET ============
+// =====================================================
+// SOCKET
+// =====================================================
 function initSocket(){
   if (socket) return;
   socket = io(SOCKET_URL, { auth: { token } });
@@ -683,9 +978,15 @@ function initSocket(){
   socket.on("game:settled", ({ net, balance: newBal }) => {
     balance = newBal;
     updateBalanceUI();
-    if (net > 0) showResultFlash(net, 1, null);
-    else if (net < 0) showResultFlash(net, 1, null);
-    else showResultFlash(0, 0, "tie");
+    if (net > 0) {
+      showResultFlash(net, 1, null);
+      playSound("win");
+    } else if (net < 0) {
+      showResultFlash(net, 1, null);
+      playSound("lose");
+    } else {
+      showResultFlash(0, 0, "tie");
+    }
   });
 
   socket.on("chat:history", list => renderChatList(list));
@@ -705,31 +1006,15 @@ function initSocket(){
   });
 }
 
-// ============ GAME STATE ============
+// =====================================================
+// GAME STATE
+// =====================================================
 function applyGameState(state){
   if (state.roundId !== lastRoundId) {
     lastRoundId = state.roundId;
     myBets = { player:0, banker:0, tie:0 };
     if (state.phase === "betting") refreshMyBets();
   }
-  // 🎩 Cập nhật dealer theo phase
-const phaseChanged = lastDealerPhase !== phase;
-const resultChanged = lastDealerResult !== state.result;
-
-if (phaseChanged || resultChanged) {
-    lastDealerPhase = phase;
-    lastDealerResult = state.result;
-
-    // Nếu vừa bắt đầu chia bài → animation
-    if (phase === "dealing" && phaseChanged) {
-        triggerDealerDealAnimation();
-    }
-
-    // Update message
-    setTimeout(() => {
-        updateDealerMessage(getDealerMessage());
-    }, phase === "dealing" ? 200 : 0);
-}
   phase = state.phase;
   countdown = state.countdown;
   playerScore = state.playerScore;
@@ -747,15 +1032,20 @@ if (phaseChanged || resultChanged) {
     state.result === "player" ? "PLAYER" :
     state.result === "banker" ? "BANKER" : "TIE";
 
-el("countdown").textContent = phase === "betting" ? countdown : "•••";
+  el("countdown").textContent = phase === "betting" ? countdown : "•••";
 
-// 🎩 Dealer nhắc khi sắp hết giờ
-if (phase === "betting" && countdown > 0 && countdown <= 3 && countdown !== lastDealerPhase) {
-    updateDealerMessage(getDealerMessage());
-}
-if (phase === "betting" && countdown === 3) {
+  if (phase === "betting" && countdown === 3) {
     updateDealerMessage("⏰ Còn 3 giây! Đặt nhanh nào!");
-}
+  }
+
+  renderHands();
+
+  if (phase !== "betting") {
+    document.querySelectorAll(".bet-option").forEach(b => b.classList.add("disabled"));
+  } else {
+    updateBetUI();
+  }
+
   const ph = el("playerHand"), bh = el("bankerHand");
   ph.classList.remove("winner"); bh.classList.remove("winner");
   if (phase === "result") {
@@ -766,6 +1056,23 @@ if (phase === "betting" && countdown === 3) {
   if (state.history) {
     historyList = state.history;
     renderHistory();
+  }
+
+  // 🎩 Dealer nói theo phase
+  const phaseChanged = lastDealerPhase !== phase;
+  const resultChanged = lastDealerResult !== state.result;
+
+  if (phaseChanged || resultChanged) {
+    lastDealerPhase = phase;
+    lastDealerResult = state.result;
+
+    if (phase === "dealing" && phaseChanged) {
+      triggerDealerDealAnimation();
+    }
+
+    setTimeout(() => {
+      updateDealerMessage(getDealerMessage());
+    }, phase === "dealing" ? 200 : 0);
   }
 }
 
@@ -839,8 +1146,12 @@ function updateBalanceUI(){
   }
 }
 
-// ============ BET ============
+// =====================================================
+// BET
+// =====================================================
 async function placeBet(side){
+  playSound("click");
+
   if (!currentUsername) {
     openAccountModal();
     showAuthMessage("Hãy đăng nhập để đặt cược.");
@@ -900,7 +1211,9 @@ async function refreshMyBets(){
   } catch(e){}
 }
 
-// ============ LEADERBOARD ============
+// =====================================================
+// LEADERBOARD (Cược ván này)
+// =====================================================
 function renderLeaderboard(){
   const box = el("leaderboardList");
   el("leaderboardCount").textContent = leaderboard.length + " người cược";
@@ -957,7 +1270,9 @@ function renderLeaderboard(){
   }
 }
 
-// ============ HISTORY ============
+// =====================================================
+// HISTORY
+// =====================================================
 function renderHistory(){
   const box = el("historyList");
   el("historyCount").textContent = historyList.length + " ván";
@@ -1014,7 +1329,9 @@ function openHistoryDetail(idx){
 }
 function closeHistoryDetail(){ el("historyOverlay").classList.remove("show"); }
 
-// ============ RESULT FLASH ============
+// =====================================================
+// RESULT FLASH
+// =====================================================
 function showResultFlash(net, stake, result){
   const flash = el("resultFlash");
   const icon = el("flashIcon");
@@ -1053,7 +1370,9 @@ function showResultFlash(net, stake, result){
   }, 2700);
 }
 
-// ============ CHAT ============
+// =====================================================
+// CHAT
+// =====================================================
 function chatItemHTML(item){
   const mine = currentUsername && item.username === currentUsername;
   const date = new Date(item.createdAt);
@@ -1102,7 +1421,9 @@ function sendChat(){
   else api("/api/chat", {method:"POST", body: JSON.stringify({message:msg})}).catch(()=>{});
 }
 
-// ============ AUTH ============
+// =====================================================
+// AUTH
+// =====================================================
 function showAuthMessage(m, good=false){
   const box = el("authMessage");
   box.textContent = m;
@@ -1207,7 +1528,9 @@ function doLogout(){
   initSocket();
 }
 
-// ============ EVENTS ============
+// =====================================================
+// EVENTS
+// =====================================================
 el("accountBtn").addEventListener("click", openAccountModal);
 el("closeAccountBtn").addEventListener("click", closeAccountModal);
 el("accountOverlay").addEventListener("click", e => {
@@ -1324,6 +1647,7 @@ el("changePassForm").addEventListener("submit", async e => {
 document.querySelectorAll(".chip").forEach(chip => {
   if (chip.id === "customChipBtn" || chip.id === "allInBtn") return;
   chip.addEventListener("click", () => {
+    playSound("click");
     selectedChip = Number(chip.dataset.chip);
     customBet = 0;
     allInMode = false;
@@ -1360,7 +1684,9 @@ el("themeBtn").addEventListener("click", function(){
   this.textContent = html.dataset.theme === "light" ? "☀️" : "🌙";
 });
 
-// ============ BOOT ============
+// =====================================================
+// BOOT
+// =====================================================
 (async function(){
   await loadMe();
   updateAccountUI();
@@ -1373,7 +1699,9 @@ el("themeBtn").addEventListener("click", function(){
   setupTopTabs();
   setupCustomBet();
   setupCodeModal();
-setupDealer();
+  setupDealer();
+  setupSoundSettings();
+
   loadTopPlayers();
 
   try {
