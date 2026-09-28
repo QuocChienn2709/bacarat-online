@@ -74,7 +74,19 @@
         <button class="chip" data-chip="50">50</button>
         <button class="chip" data-chip="100">100</button>
         <button class="chip" data-chip="500">500</button>
+        <button class="chip" data-chip="1000">1K</button>
+        <button class="chip" data-chip="5000">5K</button>
+        <button class="chip chip-custom" id="customChipBtn">✏️</button>
+        <button class="chip chip-allin" id="allInBtn">🔥 ALL-IN</button>
     </div>
+
+    <div class="custom-bet-row" id="customBetRow" style="display:none">
+        <input type="number" id="customBetInput" class="custom-bet-input"
+            placeholder="Nhập số tiền..." min="1" autocomplete="off">
+        <button class="custom-bet-ok" id="customBetOk">OK</button>
+        <button class="custom-bet-cancel" id="customBetCancel">✕</button>
+    </div>
+
     <div class="bet-options">
         <button class="bet-option" data-side="player">
             <strong>PLAYER</strong><span id="playerBet">0</span>
@@ -89,7 +101,6 @@
     <button class="clear-btn" id="clearBet">Xóa cược (chỉ khi chưa cược)</button>
 </section>
 
-<!-- TOP PLAYERS -->
 <div class="section-title clickable" data-target="topWrap">
     <h3>👑 Bảng xếp hạng tổng</h3>
     <div class="section-right">
@@ -111,7 +122,6 @@
     </section>
 </div>
 
-<!-- LEADERBOARD -->
 <div class="section-title clickable" data-target="leaderboardWrap">
     <h3>🏆 Cược ván này</h3>
     <div class="section-right">
@@ -125,7 +135,6 @@
     </section>
 </div>
 
-<!-- HISTORY -->
 <div class="section-title clickable" data-target="historyWrap">
     <h3>📜 Lịch sử ván</h3>
     <div class="section-right">
@@ -146,10 +155,8 @@
 </footer>
 </div>
 
-<!-- CHAT FAB -->
 <button class="chat-fab" id="chatFab" title="Chat">💬</button>
 
-<!-- CHAT FLOAT -->
 <div class="chat-float" id="chatFloat">
     <div class="chat-float-header" id="chatDragHandle">
         <div class="chat-float-title">
@@ -171,7 +178,6 @@
     </div>
 </div>
 
-<!-- ACCOUNT MODAL -->
 <div class="account-overlay" id="accountOverlay">
     <div class="account-modal">
         <button class="account-close" id="closeAccountBtn">×</button>
@@ -233,7 +239,6 @@
     </div>
 </div>
 
-<!-- HISTORY DETAIL -->
 <div class="account-overlay" id="historyOverlay">
     <div class="account-modal">
         <button class="account-close" id="closeHistoryBtn">×</button>
