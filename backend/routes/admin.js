@@ -2,6 +2,8 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
+const Code = require("../models/Code");
+const CodeUsage = require("../models/CodeUsage");
 const { adminAuth } = require("../middleware/auth");
 const eventBus = require("../utils/eventBus");
 
@@ -102,14 +104,13 @@ router.post("/users/:id/reset-password", adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ============ 🔥 RESET AVATAR ============
+// ============ RESET AVATAR ============
 router.post("/users/:id/reset-avatar", adminAuth, async (req, res) => {
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: "Không tìm thấy" });
   user.avatar = "";
   await user.save();
 
-  // 🔥 Xóa khỏi cache engine + broadcast
   try {
     const engine = require("../game/engine");
     engine.updateAvatar(user.username, "");
@@ -126,13 +127,128 @@ router.delete("/users/:id", adminAuth, async (req, res) => {
     eventBus.emit("force-logout", user.username);
     await User.findByIdAndDelete(req.params.id);
 
-    // 🔥 Xóa khỏi cache engine
     try {
       const engine = require("../game/engine");
       engine.updateAvatar(user.username, "");
     } catch(e) {}
   }
   res.json({ ok: true });
+});
+
+// ======================================================
+// 🎁 QUẢN LÝ CODE
+// ======================================================
+
+// Danh sách code
+router.get("/codes", adminAuth, async (req, res) => {
+  try {
+    const codes = await Code.find().sort({ createdAt: -1 });
+
+    // Aggregate usage stats
+    const codeIds = codes.map(c => c._id);
+    const usages = await CodeUsage.aggregate([
+      { $match: { codeId: { $in: codeIds } } },
+      {
+        $group: {
+          _id: "$codeId",
+          uniqueUsers: { $sum: 1 },
+          totalUses: { $sum: "$count" }
+        }
+      }
+    ]);
+    const usageMap = {};
+    usages.forEach(u => { usageMap[u._id.toString()] = u; });
+
+    res.json(codes.map(c => {
+      const stat = usageMap[c._id.toString()] || { uniqueUsers: 0, totalUses: 0 };
+      return {
+        id: c._id,
+        code: c.code,
+        value: c.value,
+        maxUses: c.maxUses,
+        usedCount: c.usedCount,
+        maxUsesPerUser: c.maxUsesPerUser,
+        active: c.active,
+        expiresAt: c.expiresAt,
+        createdAt: c.createdAt,
+        createdBy: c.createdBy,
+        uniqueUsers: stat.uniqueUsers,
+        totalUses: stat.totalUses
+      };
+    }));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Tạo code
+router.post("/codes", adminAuth, async (req, res) => {
+  try {
+    let { code, value, maxUses, maxUsesPerUser, expiresAt } = req.body;
+
+    if (!code || value === undefined || value === null) {
+      return res.status(400).json({ error: "Thiếu thông tin code hoặc giá trị" });
+    }
+
+    code = String(code).trim().toUpperCase();
+    value = Math.floor(Number(value));
+    maxUses = Math.floor(Number(maxUses)) || 0;
+    maxUsesPerUser = Math.floor(Number(maxUsesPerUser)) || 1;
+
+    if (value < 1) return res.status(400).json({ error: "Giá trị phải ≥ 1" });
+    if (!/^[A-Z0-9]{4,20}$/.test(code)) {
+      return res.status(400).json({ error: "Code chỉ gồm chữ IN HOA và số, 4-20 ký tự" });
+    }
+    if (maxUses < 0) return res.status(400).json({ error: "Số người tối đa phải ≥ 0" });
+    if (maxUsesPerUser < 1) return res.status(400).json({ error: "Số lần/user phải ≥ 1" });
+
+    const existing = await Code.findOne({ code });
+    if (existing) return res.status(400).json({ error: "Code đã tồn tại" });
+
+    const codeDoc = await Code.create({
+      code,
+      value,
+      maxUses,
+      maxUsesPerUser,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      createdBy: req.admin.username
+    });
+
+    res.json({ success: true, code: codeDoc });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Bật/tắt code
+router.post("/codes/:id/toggle", adminAuth, async (req, res) => {
+  const code = await Code.findById(req.params.id);
+  if (!code) return res.status(404).json({ error: "Không tìm thấy" });
+  code.active = !code.active;
+  await code.save();
+  res.json({ active: code.active });
+});
+
+// Reset code (xóa hết usage + reset usedCount)
+router.post("/codes/:id/reset", adminAuth, async (req, res) => {
+  try {
+    await CodeUsage.deleteMany({ codeId: req.params.id });
+    await Code.findByIdAndUpdate(req.params.id, { usedCount: 0 });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Xóa code
+router.delete("/codes/:id", adminAuth, async (req, res) => {
+  try {
+    await Code.findByIdAndDelete(req.params.id);
+    await CodeUsage.deleteMany({ codeId: req.params.id });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;
