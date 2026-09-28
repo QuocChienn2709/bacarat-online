@@ -7,6 +7,7 @@ let token = localStorage.getItem("bac_admin_token");
 let currentAction = null;
 let currentUserId = null;
 let usersCache = [];
+let codesCache = [];
 
 const $ = id => document.getElementById(id);
 
@@ -56,7 +57,19 @@ function logout() {
 function showDashboard() {
   $("loginBox").classList.add("hidden");
   $("dashboard").classList.remove("hidden");
+  loadAll();
+}
+
+function loadAll() {
   loadUsers();
+  loadCodes();
+}
+
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(t => t.classList.add("hidden"));
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add("active");
+  $(`tab${name.charAt(0).toUpperCase() + name.slice(1)}`).classList.remove("hidden");
 }
 
 // ============ USERS ============
@@ -65,13 +78,13 @@ async function loadUsers() {
     usersCache = await api("/api/admin/users");
     renderUsers();
   } catch (e) {
-    alert("Lỗi tải danh sách: " + e.message);
+    alert("Lỗi tải danh sách user: " + e.message);
     logout();
   }
 }
 
 function renderUsers() {
-  const q = $("search").value.toLowerCase();
+  const q = ($("search").value || "").toLowerCase();
   const filtered = usersCache.filter(u =>
     u.username.toLowerCase().includes(q)
   );
@@ -117,7 +130,6 @@ function renderUsers() {
   }).join("");
 }
 
-// ============ MONEY MODAL ============
 function openMoney(action, id, username, balance) {
   currentAction = action;
   currentUserId = id;
@@ -153,16 +165,11 @@ async function submitMoney() {
   } catch (e) { alert(e.message); }
 }
 
-// ============ USER ACTIONS ============
 async function toggleBan(id, username) {
   try {
-    const res = await api(`/api/admin/users/${id}/toggle-ban`, { method: "POST" });
-    console.log("Trạng thái mới:", res.banned ? "ĐÃ KHÓA" : "ĐÃ MỞ KHÓA");
-    // Reload lại ngay
+    await api(`/api/admin/users/${id}/toggle-ban`, { method: "POST" });
     loadUsers();
-  } catch (e) {
-    alert(e.message);
-  }
+  } catch (e) { alert(e.message); }
 }
 
 async function resetPass(id, username) {
@@ -196,6 +203,160 @@ async function deleteUser(id, username) {
   } catch (e) { alert(e.message); }
 }
 
+// ============ CODES ============
+async function loadCodes() {
+  try {
+    codesCache = await api("/api/admin/codes");
+    renderCodes();
+  } catch (e) {
+    console.error("Lỗi tải code:", e);
+  }
+}
+
+function renderCodes() {
+  const q = ($("codeSearch").value || "").toUpperCase();
+  const filtered = codesCache.filter(c =>
+    c.code.toUpperCase().includes(q)
+  );
+
+  let totalValue = 0, activeCount = 0;
+  codesCache.forEach(c => {
+    totalValue += c.value * c.usedCount;
+    if (c.active) activeCount++;
+  });
+  $("totalCodes").textContent = codesCache.length;
+  $("activeCodes").textContent = activeCount;
+  $("totalValue").textContent = totalValue.toLocaleString("vi-VN");
+
+  $("codesTable").innerHTML = filtered.map(c => {
+    const maxLabel = c.maxUses === 0 ? "∞" : c.maxUses.toLocaleString("vi-VN");
+    const expires = c.expiresAt
+      ? new Date(c.expiresAt).toLocaleDateString("vi-VN")
+      : "—";
+    const isExpired = c.expiresAt && new Date(c.expiresAt) < new Date();
+
+    let statusBadge;
+    if (!c.active) {
+      statusBadge = `<span class="code-badge inactive">Đã tắt</span>`;
+    } else if (isExpired) {
+      statusBadge = `<span class="code-badge inactive">Hết hạn</span>`;
+    } else if (c.maxUses > 0 && c.usedCount >= c.maxUses) {
+      statusBadge = `<span class="code-badge inactive">Hết lượt</span>`;
+    } else {
+      statusBadge = `<span class="code-badge active">Hoạt động</span>`;
+    }
+
+    return `
+    <tr>
+      <td class="code-cell">${escapeHTML(c.code)}</td>
+      <td class="code-value">${c.value.toLocaleString("vi-VN")}</td>
+      <td class="code-stat"><b>${c.usedCount}</b></td>
+      <td class="code-stat"><small>${maxLabel}</small></td>
+      <td class="code-stat"><small>${c.maxUsesPerUser} lần</small></td>
+      <td class="code-stat"><small>${c.uniqueUsers} người</small></td>
+      <td class="code-stat ${isExpired ? 'code-expired' : ''}"><small>${expires}</small></td>
+      <td>${statusBadge}</td>
+      <td>
+        <div class="actions">
+          <button class="small" onclick="Admin.toggleCode('${c.id}','${escapeHTML(c.code)}')">${c.active ? "Tắt" : "Bật"}</button>
+          <button class="warn small" onclick="Admin.resetCode('${c.id}','${escapeHTML(c.code)}')">Reset</button>
+          <button class="danger small" onclick="Admin.deleteCode('${c.id}','${escapeHTML(c.code)}')">Xóa</button>
+        </div>
+      </td>
+    </tr>
+    `;
+  }).join("");
+}
+
+function openCreateCode() {
+  $("newCodeInput").value = "";
+  $("newCodeValue").value = "";
+  $("newCodeMaxUses").value = "0";
+  $("newCodeMaxPerUser").value = "1";
+  $("newCodeExpires").value = "";
+  $("codeFormMsg").textContent = "";
+  $("codeModal").classList.add("show");
+  setTimeout(() => $("newCodeInput").focus(), 100);
+  // Random sẵn
+  randomCode();
+}
+
+function closeCodeModal() {
+  $("codeModal").classList.remove("show");
+}
+
+function randomCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  $("newCodeInput").value = code;
+}
+
+async function submitCode() {
+  const code = $("newCodeInput").value.trim().toUpperCase();
+  const value = Number($("newCodeValue").value);
+  const maxUses = Number($("newCodeMaxUses").value);
+  const maxUsesPerUser = Number($("newCodeMaxPerUser").value);
+  const expiresInput = $("newCodeExpires").value;
+
+  const msg = $("codeFormMsg");
+  msg.textContent = "";
+
+  if (!code) { msg.textContent = "Vui lòng nhập mã code"; return; }
+  if (!/^[A-Z0-9]{4,20}$/.test(code)) {
+    msg.textContent = "Code chỉ gồm chữ IN HOA và số, 4-20 ký tự";
+    return;
+  }
+  if (!value || value < 1) { msg.textContent = "Giá trị phải ≥ 1"; return; }
+  if (maxUses < 0) { msg.textContent = "Số người tối đa phải ≥ 0"; return; }
+  if (maxUsesPerUser < 1) { msg.textContent = "Số lần/user phải ≥ 1"; return; }
+
+  try {
+    await api("/api/admin/codes", {
+      method: "POST",
+      body: JSON.stringify({
+        code,
+        value,
+        maxUses,
+        maxUsesPerUser,
+        expiresAt: expiresInput ? new Date(expiresInput).toISOString() : null
+      })
+    });
+    closeCodeModal();
+    alert(`✅ Đã tạo code ${code}`);
+    loadCodes();
+  } catch (e) {
+    msg.textContent = e.message;
+  }
+}
+
+async function toggleCode(id, code) {
+  try {
+    const res = await api(`/api/admin/codes/${id}/toggle`, { method: "POST" });
+    loadCodes();
+  } catch (e) { alert(e.message); }
+}
+
+async function resetCode(id, code) {
+  if (!confirm(`Reset code ${code}?\n\nSẽ xóa toàn bộ lịch sử dùng code và đưa usedCount về 0.`)) return;
+  try {
+    await api(`/api/admin/codes/${id}/reset`, { method: "POST" });
+    alert(`✅ Đã reset code ${code}`);
+    loadCodes();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteCode(id, code) {
+  if (!confirm(`Xóa code ${code}?\n\nToàn bộ lịch sử dùng code cũng sẽ bị xóa.`)) return;
+  try {
+    await api(`/api/admin/codes/${id}`, { method: "DELETE" });
+    alert(`✅ Đã xóa code ${code}`);
+    loadCodes();
+  } catch (e) { alert(e.message); }
+}
+
 // ============ EVENTS ============
 $("adminPass").addEventListener("keydown", e => {
   if (e.key === "Enter") login();
@@ -209,11 +370,19 @@ $("modalAmount").addEventListener("keydown", e => {
 $("moneyModal").addEventListener("click", e => {
   if (e.target === $("moneyModal")) closeModal();
 });
+$("codeModal").addEventListener("click", e => {
+  if (e.target === $("codeModal")) closeCodeModal();
+});
+$("newCodeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("newCodeValue").focus();
+});
 
 // ============ EXPORT ============
 window.Admin = {
   login,
   logout,
+  loadAll,
+  switchTab,
   loadUsers,
   renderUsers,
   openMoney,
@@ -222,7 +391,16 @@ window.Admin = {
   toggleBan,
   resetPass,
   resetAvatar,
-  deleteUser
+  deleteUser,
+  loadCodes,
+  renderCodes,
+  openCreateCode,
+  closeCodeModal,
+  randomCode,
+  submitCode,
+  toggleCode,
+  resetCode,
+  deleteCode
 };
 
 // ============ BOOT ============
