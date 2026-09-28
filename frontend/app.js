@@ -868,14 +868,14 @@ function applyGameState(state){
 
   el("countdown").textContent = phase === "betting" ? countdown : "•••";
 
-  // 🔊 Âm thanh: còn 4s
-  if (phase === "betting" && countdown === 4 && lastWarnCountdown !== 4) {
+// 🔊 Âm thanh: còn 10s
+if (phase === "betting" && countdown === 10 && lastWarnCountdown !== 10) {
     playSound("betWarning");
-    lastWarnCountdown = 4;
-  }
-  if (phase === "betting" && countdown > 4) {
+    lastWarnCountdown = 10;
+}
+if (phase === "betting" && countdown > 10) {
     lastWarnCountdown = -1;
-  }
+}
 
   // 🔊 Âm thanh: dừng đặt cược (chuyển từ betting → dealing)
   if (phase === "dealing" && prevPhase === "betting") {
