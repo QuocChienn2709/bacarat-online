@@ -11,6 +11,7 @@ const gameRoutes = require("./routes/game");
 const chatRoutes = require("./routes/chat");
 const adminRoutes = require("./routes/admin");
 const codeRoutes = require("./routes/codes");
+const soundRoutes = require("./routes/sounds");
 const Chat = require("./models/Chat");
 const User = require("./models/User");
 const engine = require("./game/engine");
@@ -20,13 +21,14 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(cors({ origin: "*", credentials: true }));
-app.use(express.json({ limit: "1mb" })); // tăng limit cho avatar base64
+app.use(express.json({ limit: "90mb" })); // tăng limit cho avatar base64
 
 app.use("/api/auth", authRoutes);
 app.use("/api/game", gameRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/codes", codeRoutes);
+app.use("/api/sounds", soundRoutes);   
 app.get("/", (req, res) => res.json({ ok: true, service: "baccarat v2" }));
 
 // ============ SOCKET.IO ============
