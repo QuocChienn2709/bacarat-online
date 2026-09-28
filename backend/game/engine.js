@@ -7,7 +7,7 @@ const SUITS = ["♠","♥","♦","♣"];
 const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const DECKS = 8;
 
-const BET_SECONDS = 10;
+const BET_SECONDS = 15;
 const DEAL_PAUSE = 1500;
 const FLIP_DELAY = 600;
 const BETWEEN_PHASE = 1500;
@@ -62,7 +62,7 @@ class GameEngine extends EventEmitter {
     this.currentBets = new Map();
     this.timer = null;
     this.history = [];
-    this.avatarCache = new Map();   // 🔥 username -> avatar
+    this.avatarCache = new Map();
     this._loadHistory();
   }
 
@@ -73,7 +73,6 @@ class GameEngine extends EventEmitter {
       const last = await History.findOne().sort({ roundId: -1 });
       if (last) this.roundId = last.roundId;
 
-      // 🔥 Preload avatar tất cả user vào cache
       const users = await User.find().select("username avatar");
       for (const u of users) {
         if (u.avatar) this.avatarCache.set(u.username, u.avatar);
@@ -88,7 +87,6 @@ class GameEngine extends EventEmitter {
     return this.shoe.pop();
   }
 
-  // 🔥 Cập nhật avatar vào cache (gọi khi user/admin đổi avatar)
   updateAvatar(username, avatar) {
     if (avatar) this.avatarCache.set(username, avatar);
     else this.avatarCache.delete(username);
@@ -101,7 +99,7 @@ class GameEngine extends EventEmitter {
       if (total <= 0) continue;
       list.push({
         username,
-        avatar: this.avatarCache.get(username) || "",   // 🔥 avatar từ cache
+        avatar: this.avatarCache.get(username) || "",
         player: bets.player,
         banker: bets.banker,
         tie: bets.tie,
@@ -187,7 +185,6 @@ class GameEngine extends EventEmitter {
     cur[side] += amount;
     this.currentBets.set(username, cur);
 
-    // 🔥 Cache avatar của user khi đặt cược
     if (user.avatar) {
       this.avatarCache.set(username, user.avatar);
     }
@@ -287,12 +284,31 @@ class GameEngine extends EventEmitter {
     const settlements = [];
     for (const [username, bets] of this.currentBets) {
       let winReturn = 0, won = false;
-      if (result === "player" && bets.player > 0) { winReturn += bets.player * 2; won = true; }
-      if (result === "banker" && bets.banker > 0) { winReturn += bets.banker * 2; won = true; }
+
+      // ============ 🔥 TỈ LỆ TRẢ THƯỞNG CHUẨN BACCARAT ============
+      // PLAYER: 1:1  → đặt P nhận P*2 (lãi P)
+      // BANKER: 0.95:1 → đặt B nhận B + floor(B*0.95) (lãi 95%, trừ 5% hoa hồng)
+      // TIE:    8:1  → đặt T nhận T*9 (lãi 8T)
+      // ============================================================
+
+      if (result === "player" && bets.player > 0) {
+        winReturn += bets.player * 2;   // 1:1
+        won = true;
+      }
+      if (result === "banker" && bets.banker > 0) {
+        // Trả vốn + 95% lãi (trừ 5% hoa hồng)
+        winReturn += bets.banker + Math.floor(bets.banker * 0.95);
+        won = true;
+      }
       if (result === "tie") {
-        if (bets.tie > 0) { winReturn += bets.tie * 9; won = true; }
+        if (bets.tie > 0) {
+          winReturn += bets.tie * 9;    // 8:1
+          won = true;
+        }
+        // Tie hoàn tiền Player/Banker
         winReturn += bets.player + bets.banker;
       }
+
       const stake = bets.player + bets.banker + bets.tie;
       const net = winReturn - stake;
 
@@ -315,7 +331,6 @@ class GameEngine extends EventEmitter {
 
           await user.save();
 
-          // 🔥 Cập nhật avatar cache
           if (user.avatar) this.avatarCache.set(username, user.avatar);
 
           settlements.push({ username, balance: user.balance, net, won });
