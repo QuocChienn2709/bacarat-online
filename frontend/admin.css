@@ -261,3 +261,29 @@ tr:hover{background:#1a1f38}
     opacity:.6;
     cursor:wait;
 }
+/* ========== SOUND GROUPS ========== */
+.sound-group-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 4px 8px;
+    margin-top:15px;
+    border-bottom:1px solid #2a3050;
+    font-size:15px;
+    font-weight:800;
+    color:#5b8cff;
+}
+.sound-group-title:first-child{
+    margin-top:0;
+}
+.sound-group-title small{
+    color:#aeb7d0;
+    font-weight:600;
+    font-size:11px;
+}
+.sound-admin-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:12px;
+    margin-top:12px;
+}
