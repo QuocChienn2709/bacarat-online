@@ -12,22 +12,52 @@ let soundsCache = {};
 
 const $ = id => document.getElementById(id);
 
-const SOUND_KEYS = ["betWarning", "betStop", "deal", "win", "lose", "click", "dealer"];
+// =====================================================
+// 🔊 SOUND KEYS + META
+// =====================================================
+const SOUND_KEYS = [
+    // 7 sự kiện
+    "betWarning", "betStop", "deal", "win", "lose", "click", "dealer",
+    // 13 rank đọc bài
+    "card_A", "card_2", "card_3", "card_4", "card_5", "card_6", "card_7",
+    "card_8", "card_9", "card_10", "card_J", "card_Q", "card_K"
+];
+
 const SOUND_META = {
- betWarning: { icon: "⏰", name: "Cảnh báo 10s", desc: "Phát khi còn 10 giây đặt cược" },
-    betStop:    { icon: "🛑", name: "Dừng đặt cược", desc: "Phát khi hết thời gian đặt cược" },
-    deal:       { icon: "🎴", name: "Lật bài", desc: "Phát khi lật mỗi lá bài" },
-    win:        { icon: "🎉", name: "Thắng", desc: "Phát khi người chơi thắng" },
-    lose:       { icon: "😔", name: "Thua", desc: "Phát khi người chơi thua" },
-    click:      { icon: "🖱️", name: "Click", desc: "Phát khi bấm nút" },
-    dealer:     { icon: "🎩", name: "Dealer nói", desc: "Phát khi dealer gửi tin" }
+    // Nhóm 1: Sự kiện chung
+    betWarning: { icon: "⏰", name: "Cảnh báo 10s", desc: "Phát khi còn 10 giây đặt cược", group: "Sự kiện" },
+    betStop:    { icon: "🛑", name: "Dừng đặt cược", desc: "Phát khi hết thời gian đặt cược", group: "Sự kiện" },
+    deal:       { icon: "🎴", name: "Lật bài (tiếng)", desc: "Tiếng 'phập' khi lật lá", group: "Sự kiện" },
+    win:        { icon: "🎉", name: "Thắng", desc: "Phát khi người chơi thắng", group: "Sự kiện" },
+    lose:       { icon: "😔", name: "Thua", desc: "Phát khi người chơi thua", group: "Sự kiện" },
+    click:      { icon: "🖱️", name: "Click", desc: "Phát khi bấm nút", group: "Sự kiện" },
+    dealer:     { icon: "🎩", name: "Dealer nói", desc: "Phát khi dealer gửi tin", group: "Sự kiện" },
+
+    // Nhóm 2: Đọc rank lá bài
+    card_A:  { icon: "🅰️", name: "Đọc A",  desc: "Khi lật lá A",  group: "Đọc bài" },
+    card_2:  { icon: "2️⃣", name: "Đọc 2",  desc: "Khi lật lá 2",  group: "Đọc bài" },
+    card_3:  { icon: "3️⃣", name: "Đọc 3",  desc: "Khi lật lá 3",  group: "Đọc bài" },
+    card_4:  { icon: "4️⃣", name: "Đọc 4",  desc: "Khi lật lá 4",  group: "Đọc bài" },
+    card_5:  { icon: "5️⃣", name: "Đọc 5",  desc: "Khi lật lá 5",  group: "Đọc bài" },
+    card_6:  { icon: "6️⃣", name: "Đọc 6",  desc: "Khi lật lá 6",  group: "Đọc bài" },
+    card_7:  { icon: "7️⃣", name: "Đọc 7",  desc: "Khi lật lá 7",  group: "Đọc bài" },
+    card_8:  { icon: "8️⃣", name: "Đọc 8",  desc: "Khi lật lá 8",  group: "Đọc bài" },
+    card_9:  { icon: "9️⃣", name: "Đọc 9",  desc: "Khi lật lá 9",  group: "Đọc bài" },
+    card_10: { icon: "🔟", name: "Đọc 10", desc: "Khi lật lá 10", group: "Đọc bài" },
+    card_J:  { icon: "🎴", name: "Đọc J",  desc: "Khi lật lá J",  group: "Đọc bài" },
+    card_Q:  { icon: "👸", name: "Đọc Q",  desc: "Khi lật lá Q",  group: "Đọc bài" },
+    card_K:  { icon: "🤴", name: "Đọc K",  desc: "Khi lật lá K",  group: "Đọc bài" }
 };
 
+// =====================================================
+// API HELPER
+// =====================================================
 async function api(path, options = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
   const res = await fetch(API + path, {
-    ...options, headers: { ...headers, ...(options.headers || {}) }
+    ...options,
+    headers: { ...headers, ...(options.headers || {}) }
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "Lỗi máy chủ");
@@ -39,7 +69,9 @@ function escapeHTML(t) {
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 
-// ============ AUTH ============
+// =====================================================
+// AUTH
+// =====================================================
 async function login() {
   const username = $("adminUser").value.trim();
   const password = $("adminPass").value;
@@ -52,7 +84,9 @@ async function login() {
     localStorage.setItem("bac_admin_token", token);
     $("loginMsg").textContent = "";
     showDashboard();
-  } catch (e) { $("loginMsg").textContent = e.message; }
+  } catch (e) {
+    $("loginMsg").textContent = e.message;
+  }
 }
 
 function logout() {
@@ -77,31 +111,45 @@ function loadAll() {
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   document.querySelectorAll(".tab-content").forEach(t => t.classList.add("hidden"));
-  document.querySelector(`.tab[data-tab="${name}"]`).classList.add("active");
-  $(`tab${name.charAt(0).toUpperCase() + name.slice(1)}`).classList.remove("hidden");
+  const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+  if (tab) tab.classList.add("active");
+  const content = $(`tab${name.charAt(0).toUpperCase() + name.slice(1)}`);
+  if (content) content.classList.remove("hidden");
 }
 
-// ============ USERS ============
+// =====================================================
+// USERS
+// =====================================================
 async function loadUsers() {
   try {
     usersCache = await api("/api/admin/users");
     renderUsers();
-  } catch (e) { alert("Lỗi tải users: " + e.message); logout(); }
+  } catch (e) {
+    alert("Lỗi tải danh sách user: " + e.message);
+    logout();
+  }
 }
 
 function renderUsers() {
   const q = ($("search").value || "").toLowerCase();
-  const filtered = usersCache.filter(u => u.username.toLowerCase().includes(q));
+  const filtered = usersCache.filter(u =>
+    u.username.toLowerCase().includes(q)
+  );
 
   let totalBalance = 0, totalRounds = 0;
-  usersCache.forEach(u => { totalBalance += u.balance; totalRounds += u.roundsPlayed; });
+  usersCache.forEach(u => {
+    totalBalance += u.balance;
+    totalRounds += u.roundsPlayed;
+  });
   $("totalUsers").textContent = usersCache.length;
   $("totalBalance").textContent = totalBalance.toLocaleString("vi-VN");
   $("totalRounds").textContent = totalRounds.toLocaleString("vi-VN");
 
   $("usersTable").innerHTML = filtered.map(u => {
-    const avatarHTML = u.avatar ? `<img src="${u.avatar}" alt="">`
-                                : escapeHTML(u.username.charAt(0).toUpperCase());
+    const avatarHTML = u.avatar
+      ? `<img src="${u.avatar}" alt="">`
+      : escapeHTML(u.username.charAt(0).toUpperCase());
+
     return `
     <tr>
       <td><div class="admin-avatar">${avatarHTML}</div></td>
@@ -124,12 +172,14 @@ function renderUsers() {
           <button class="danger small" onclick="Admin.deleteUser('${u.id}','${escapeHTML(u.username)}')">Xóa</button>
         </div>
       </td>
-    </tr>`;
+    </tr>
+    `;
   }).join("");
 }
 
 function openMoney(action, id, username, balance) {
-  currentAction = action; currentUserId = id;
+  currentAction = action;
+  currentUserId = id;
   $("modalUser").textContent = "@" + username;
   $("modalBalance").textContent = balance.toLocaleString("vi-VN");
   $("modalAmount").value = "";
@@ -141,20 +191,24 @@ function openMoney(action, id, username, balance) {
 
 function closeModal() {
   $("moneyModal").classList.remove("show");
-  currentAction = null; currentUserId = null;
+  currentAction = null;
+  currentUserId = null;
 }
 
 async function submitMoney() {
   const amount = Number($("modalAmount").value);
   if (amount < 0 || isNaN(amount)) { alert("Số tiền không hợp lệ"); return; }
   const path = currentAction === "add" ? "add"
-             : currentAction === "sub" ? "subtract" : "set";
+             : currentAction === "sub" ? "subtract"
+             : "set";
   const body = currentAction === "set" ? { balance: amount } : { amount };
   try {
     await api(`/api/admin/users/${currentUserId}/${path}`, {
-      method: "POST", body: JSON.stringify(body)
+      method: "POST",
+      body: JSON.stringify(body)
     });
-    closeModal(); loadUsers();
+    closeModal();
+    loadUsers();
   } catch (e) { alert(e.message); }
 }
 
@@ -171,9 +225,11 @@ async function resetPass(id, username) {
   if (newPassword.length < 4) { alert("Mật khẩu ≥ 4 ký tự"); return; }
   try {
     await api(`/api/admin/users/${id}/reset-password`, {
-      method: "POST", body: JSON.stringify({ newPassword })
+      method: "POST",
+      body: JSON.stringify({ newPassword })
     });
-    alert("✅ Đã reset mật khẩu"); loadUsers();
+    alert("✅ Đã reset mật khẩu");
+    loadUsers();
   } catch (e) { alert(e.message); }
 }
 
@@ -181,7 +237,8 @@ async function resetAvatar(id, username) {
   if (!confirm(`Xóa avatar của @${username}?`)) return;
   try {
     await api(`/api/admin/users/${id}/reset-avatar`, { method: "POST" });
-    alert("✅ Đã xóa avatar"); loadUsers();
+    alert("✅ Đã xóa avatar");
+    loadUsers();
   } catch (e) { alert(e.message); }
 }
 
@@ -193,33 +250,50 @@ async function deleteUser(id, username) {
   } catch (e) { alert(e.message); }
 }
 
-// ============ CODES ============
+// =====================================================
+// CODES
+// =====================================================
 async function loadCodes() {
   try {
     codesCache = await api("/api/admin/codes");
     renderCodes();
-  } catch (e) { console.error("Lỗi tải code:", e); }
+  } catch (e) {
+    console.error("Lỗi tải code:", e);
+  }
 }
 
 function renderCodes() {
   const q = ($("codeSearch").value || "").toUpperCase();
-  const filtered = codesCache.filter(c => c.code.toUpperCase().includes(q));
+  const filtered = codesCache.filter(c =>
+    c.code.toUpperCase().includes(q)
+  );
 
   let totalValue = 0, activeCount = 0;
-  codesCache.forEach(c => { totalValue += c.value * c.usedCount; if (c.active) activeCount++; });
+  codesCache.forEach(c => {
+    totalValue += c.value * c.usedCount;
+    if (c.active) activeCount++;
+  });
   $("totalCodes").textContent = codesCache.length;
   $("activeCodes").textContent = activeCount;
   $("totalValue").textContent = totalValue.toLocaleString("vi-VN");
 
   $("codesTable").innerHTML = filtered.map(c => {
     const maxLabel = c.maxUses === 0 ? "∞" : c.maxUses.toLocaleString("vi-VN");
-    const expires = c.expiresAt ? new Date(c.expiresAt).toLocaleDateString("vi-VN") : "—";
+    const expires = c.expiresAt
+      ? new Date(c.expiresAt).toLocaleDateString("vi-VN")
+      : "—";
     const isExpired = c.expiresAt && new Date(c.expiresAt) < new Date();
+
     let statusBadge;
-    if (!c.active) statusBadge = `<span class="code-badge inactive">Đã tắt</span>`;
-    else if (isExpired) statusBadge = `<span class="code-badge inactive">Hết hạn</span>`;
-    else if (c.maxUses > 0 && c.usedCount >= c.maxUses) statusBadge = `<span class="code-badge inactive">Hết lượt</span>`;
-    else statusBadge = `<span class="code-badge active">Hoạt động</span>`;
+    if (!c.active) {
+      statusBadge = `<span class="code-badge inactive">Đã tắt</span>`;
+    } else if (isExpired) {
+      statusBadge = `<span class="code-badge inactive">Hết hạn</span>`;
+    } else if (c.maxUses > 0 && c.usedCount >= c.maxUses) {
+      statusBadge = `<span class="code-badge inactive">Hết lượt</span>`;
+    } else {
+      statusBadge = `<span class="code-badge active">Hoạt động</span>`;
+    }
 
     return `
     <tr>
@@ -238,7 +312,8 @@ function renderCodes() {
           <button class="danger small" onclick="Admin.deleteCode('${c.id}','${escapeHTML(c.code)}')">Xóa</button>
         </div>
       </td>
-    </tr>`;
+    </tr>
+    `;
   }).join("");
 }
 
@@ -254,12 +329,16 @@ function openCreateCode() {
   randomCode();
 }
 
-function closeCodeModal() { $("codeModal").classList.remove("show"); }
+function closeCodeModal() {
+  $("codeModal").classList.remove("show");
+}
 
 function randomCode() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
-  for (let i = 0; i < 8; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
   $("newCodeInput").value = code;
 }
 
@@ -269,11 +348,15 @@ async function submitCode() {
   const maxUses = Number($("newCodeMaxUses").value);
   const maxUsesPerUser = Number($("newCodeMaxPerUser").value);
   const expiresInput = $("newCodeExpires").value;
+
   const msg = $("codeFormMsg");
   msg.textContent = "";
 
   if (!code) { msg.textContent = "Vui lòng nhập mã code"; return; }
-  if (!/^[A-Z0-9]{4,20}$/.test(code)) { msg.textContent = "Code chỉ gồm chữ IN HOA và số, 4-20 ký tự"; return; }
+  if (!/^[A-Z0-9]{4,20}$/.test(code)) {
+    msg.textContent = "Code chỉ gồm chữ IN HOA và số, 4-20 ký tự";
+    return;
+  }
   if (!value || value < 1) { msg.textContent = "Giá trị phải ≥ 1"; return; }
   if (maxUses < 0) { msg.textContent = "Số người tối đa phải ≥ 0"; return; }
   if (maxUsesPerUser < 1) { msg.textContent = "Số lần/user phải ≥ 1"; return; }
@@ -282,14 +365,19 @@ async function submitCode() {
     await api("/api/admin/codes", {
       method: "POST",
       body: JSON.stringify({
-        code, value, maxUses, maxUsesPerUser,
+        code,
+        value,
+        maxUses,
+        maxUsesPerUser,
         expiresAt: expiresInput ? new Date(expiresInput).toISOString() : null
       })
     });
     closeCodeModal();
     alert(`✅ Đã tạo code ${code}`);
     loadCodes();
-  } catch (e) { msg.textContent = e.message; }
+  } catch (e) {
+    msg.textContent = e.message;
+  }
 }
 
 async function toggleCode(id) {
@@ -317,14 +405,18 @@ async function deleteCode(id, code) {
   } catch (e) { alert(e.message); }
 }
 
-// ============ 🔊 SOUNDS ============
+// =====================================================
+// 🔊 SOUNDS
+// =====================================================
 async function loadSounds() {
   try {
     const list = await api("/api/admin/sounds");
     soundsCache = {};
     list.forEach(s => { soundsCache[s.key] = s; });
     renderSounds();
-  } catch (e) { console.error("Lỗi tải sounds:", e); }
+  } catch (e) {
+    console.error("Lỗi tải sounds:", e);
+  }
 }
 
 function renderSounds() {
@@ -339,39 +431,63 @@ function renderSounds() {
       count++;
     }
   });
-  $("totalSounds").textContent = count + " / " + SOUND_KEYS.length;
-  $("totalSoundSize").textContent = (totalSize / 1024).toFixed(1) + " KB";
+  const el1 = $("totalSounds");
+  const el2 = $("totalSoundSize");
+  if (el1) el1.textContent = count + " / " + SOUND_KEYS.length;
+  if (el2) el2.textContent = (totalSize / 1024).toFixed(1) + " KB";
 
-  grid.innerHTML = SOUND_KEYS.map(key => {
+  // Chia thành 2 nhóm
+  const groups = {};
+  SOUND_KEYS.forEach(key => {
     const meta = SOUND_META[key];
-    const s = soundsCache[key];
-    const has = !!s;
-    const infoHTML = has
-      ? `<strong>${escapeHTML(s.filename || "")}</strong><br>${(s.size/1024).toFixed(1)} KB · ${escapeHTML(s.mimetype || "")}`
-      : `<em style="color:#6b7390">Chưa có âm thanh</em>`;
+    const g = meta.group || "Khác";
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(key);
+  });
 
-    return `
-      <div class="sound-admin-card ${has ? "has-sound" : ""}">
-        <div class="sound-admin-header">
-          <div class="sound-admin-icon">${meta.icon}</div>
-          <div class="sound-admin-title">
-            <strong>${meta.name}</strong>
-            <small>${meta.desc}</small>
-          </div>
-        </div>
-        <div class="sound-admin-info">${infoHTML}</div>
-        <input type="file" accept="audio/*" class="sound-admin-file"
-            data-key="${key}" style="display:none">
-        <button class="sound-admin-upload" data-key="${key}">
-          ${has ? "🔄 Thay âm thanh" : "📁 Upload âm thanh"}
-        </button>
-        <div class="sound-admin-actions">
-          <button class="btn-play" data-key="${key}" ${has ? "" : "disabled"}>▶️ Nghe thử</button>
-          <button class="btn-del" data-key="${key}" ${has ? "" : "disabled"}>🗑️ Xóa</button>
-        </div>
+  let html = "";
+  Object.keys(groups).forEach(groupName => {
+    html += `
+      <div class="sound-group-title">
+        <span>${groupName === "Đọc bài" ? "🎴" : "⚡"} ${groupName}</span>
+        <small>${groups[groupName].length} slot</small>
       </div>
     `;
-  }).join("");
+    html += `<div class="sound-admin-grid">`;
+    html += groups[groupName].map(key => {
+      const meta = SOUND_META[key];
+      const s = soundsCache[key];
+      const has = !!s;
+      const infoHTML = has
+        ? `<strong>${escapeHTML(s.filename || "")}</strong><br>${(s.size/1024).toFixed(1)} KB`
+        : `<em style="color:#6b7390">Chưa có âm thanh</em>`;
+
+      return `
+        <div class="sound-admin-card ${has ? "has-sound" : ""}">
+          <div class="sound-admin-header">
+            <div class="sound-admin-icon">${meta.icon}</div>
+            <div class="sound-admin-title">
+              <strong>${meta.name}</strong>
+              <small>${meta.desc}</small>
+            </div>
+          </div>
+          <div class="sound-admin-info">${infoHTML}</div>
+          <input type="file" accept="audio/*" class="sound-admin-file"
+              data-key="${key}" style="display:none">
+          <button class="sound-admin-upload" data-key="${key}">
+            ${has ? "🔄 Thay âm thanh" : "📁 Upload âm thanh"}
+          </button>
+          <div class="sound-admin-actions">
+            <button class="btn-play" data-key="${key}" ${has ? "" : "disabled"}>▶️ Nghe thử</button>
+            <button class="btn-del" data-key="${key}" ${has ? "" : "disabled"}>🗑️ Xóa</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    html += `</div>`;
+  });
+
+  grid.innerHTML = html;
 
   // Bind upload
   grid.querySelectorAll(".sound-admin-upload").forEach(btn => {
@@ -456,24 +572,61 @@ function fileToBase64(file){
   });
 }
 
-// ============ EVENTS ============
-$("adminPass").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
-$("adminUser").addEventListener("keydown", e => { if (e.key === "Enter") $("adminPass").focus(); });
-$("modalAmount").addEventListener("keydown", e => { if (e.key === "Enter") submitMoney(); });
-$("moneyModal").addEventListener("click", e => { if (e.target === $("moneyModal")) closeModal(); });
-$("codeModal").addEventListener("click", e => { if (e.target === $("codeModal")) closeCodeModal(); });
-$("newCodeInput").addEventListener("keydown", e => { if (e.key === "Enter") $("newCodeValue").focus(); });
+// =====================================================
+// EVENTS
+// =====================================================
+$("adminPass").addEventListener("keydown", e => {
+  if (e.key === "Enter") login();
+});
+$("adminUser").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("adminPass").focus();
+});
+$("modalAmount").addEventListener("keydown", e => {
+  if (e.key === "Enter") submitMoney();
+});
+$("moneyModal").addEventListener("click", e => {
+  if (e.target === $("moneyModal")) closeModal();
+});
+$("codeModal").addEventListener("click", e => {
+  if (e.target === $("codeModal")) closeCodeModal();
+});
+$("newCodeInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") $("newCodeValue").focus();
+});
 
-// ============ EXPORT ============
+// =====================================================
+// EXPORT
+// =====================================================
 window.Admin = {
-  login, logout, loadAll, switchTab,
-  loadUsers, renderUsers, openMoney, closeModal, submitMoney,
-  toggleBan, resetPass, resetAvatar, deleteUser,
-  loadCodes, renderCodes, openCreateCode, closeCodeModal, randomCode,
-  submitCode, toggleCode, resetCode, deleteCode,
-  loadSounds, renderSounds
+  login,
+  logout,
+  loadAll,
+  switchTab,
+  loadUsers,
+  renderUsers,
+  openMoney,
+  closeModal,
+  submitMoney,
+  toggleBan,
+  resetPass,
+  resetAvatar,
+  deleteUser,
+  loadCodes,
+  renderCodes,
+  openCreateCode,
+  closeCodeModal,
+  randomCode,
+  submitCode,
+  toggleCode,
+  resetCode,
+  deleteCode,
+  loadSounds,
+  renderSounds
 };
 
+// =====================================================
+// BOOT
+// =====================================================
 if (token) showDashboard();
 
 })();
