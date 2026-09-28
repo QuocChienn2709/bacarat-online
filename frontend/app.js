@@ -37,9 +37,12 @@ let lastDealerPhase = "";
 let lastDealerResult = "";
 
 // ===== SOUND STATE =====
-let sounds = {};
 let soundsEnabled = true;
 let soundsVolume = 0.8;
+let availableSounds = {};         // { key: true }
+let lastWarnCountdown = -1;
+let lastRevealedCount = -1;
+let lastGamePhase = "";
 
 const DEALER_EMOJIS = [
     "🎩", "👨‍💼", "👩‍💼", "🤵",
@@ -47,21 +50,22 @@ const DEALER_EMOJIS = [
     "🃏", "🎰", "🤠", "🧙"
 ];
 
-const SOUND_KEYS = ["deal", "win", "lose", "click", "dealer"];
-const SOUND_LABELS = {
-    deal: "Chia bài",
-    win: "Thắng",
-    lose: "Thua",
-    click: "Click",
-    dealer: "Dealer nói"
+const SOUND_KEYS = ["betWarning", "betStop", "deal", "win", "lose", "click", "dealer"];
+const SOUND_META = {
+    betWarning: { icon: "⏰", name: "Cảnh báo 4s" },
+    betStop:    { icon: "🛑", name: "Dừng đặt cược" },
+    deal:       { icon: "🎴", name: "Lật bài" },
+    win:        { icon: "🎉", name: "Thắng" },
+    lose:       { icon: "😔", name: "Thua" },
+    click:      { icon: "🖱️", name: "Click" },
+    dealer:     { icon: "🎩", name: "Dealer nói" }
 };
 
 const el = id => document.getElementById(id);
 
 function escapeHTML(t){
   return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/&#039;/g,"&#039;")
-    .replace(/'/g,"&#039;");
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
 
 async function api(path, options={}) {
@@ -76,49 +80,36 @@ async function api(path, options={}) {
 }
 
 // =====================================================
-// 🔊 SOUND MANAGER
+// 🔊 SOUND MANAGER (server-side config, user chỉ bật/tắt + volume)
 // =====================================================
-function loadSounds(){
-    try {
-        const raw = localStorage.getItem("bac_sounds");
-        if (raw) sounds = JSON.parse(raw) || {};
-    } catch(e) { sounds = {}; }
-
+async function loadSoundsConfig(){
     soundsEnabled = localStorage.getItem("bac_sounds_enabled") !== "0";
     soundsVolume = Number(localStorage.getItem("bac_sounds_volume")) || 0.8;
-}
 
-function saveSounds(){
     try {
-        localStorage.setItem("bac_sounds", JSON.stringify(sounds));
-        localStorage.setItem("bac_sounds_enabled", soundsEnabled ? "1" : "0");
-        localStorage.setItem("bac_sounds_volume", String(soundsVolume));
-        return true;
+        const list = await api("/api/sounds");
+        availableSounds = {};
+        list.forEach(s => { availableSounds[s.key] = true; });
     } catch(e) {
-        if (e.name === "QuotaExceededError") {
-            alert("⚠️ Bộ nhớ đầy! File âm thanh quá lớn. Vui lòng dùng file nhỏ hơn (< 1MB) hoặc xóa bớt âm thanh khác.");
-            return false;
-        }
-        return false;
+        console.warn("Không tải được danh sách âm thanh:", e);
+        availableSounds = {};
     }
 }
 
 function playSound(key){
     if (!soundsEnabled) return;
-    const src = sounds[key];
-    if (!src) return;
+    if (!availableSounds[key]) return;
     try {
-        const audio = new Audio(src);
-        audio.volume = Math.max(0, Math.min(1, soundsVolume));
-        audio.play().catch(() => {});
+        const a = new Audio(API + "/api/sounds/" + key + "/audio");
+        a.volume = Math.max(0, Math.min(1, soundsVolume));
+        a.play().catch(() => {});
     } catch(e) {}
 }
 
 function setupSoundSettings(){
-    loadSounds();
-
+    // Mở modal
     el("soundBtn").addEventListener("click", () => {
-        renderSoundSettings();
+        renderSoundAvailableList();
         el("soundOverlay").classList.add("show");
     });
     el("closeSoundBtn").addEventListener("click", () => {
@@ -129,93 +120,24 @@ function setupSoundSettings(){
             el("soundOverlay").classList.remove("show");
     });
 
+    // Toggle
     const soundEnabledEl = el("soundEnabled");
     soundEnabledEl.checked = soundsEnabled;
     updateSoundEnabledLabel();
     soundEnabledEl.addEventListener("change", () => {
         soundsEnabled = soundEnabledEl.checked;
         updateSoundEnabledLabel();
-        saveSounds();
+        localStorage.setItem("bac_sounds_enabled", soundsEnabled ? "1" : "0");
     });
 
+    // Volume
     const volEl = el("soundVolume");
     volEl.value = Math.round(soundsVolume * 100);
     el("soundVolumeValue").textContent = volEl.value + "%";
     volEl.addEventListener("input", () => {
         soundsVolume = Number(volEl.value) / 100;
         el("soundVolumeValue").textContent = volEl.value + "%";
-        saveSounds();
-    });
-
-    document.querySelectorAll(".sound-input").forEach(input => {
-        input.addEventListener("change", async e => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const key = input.dataset.key;
-
-            if (!file.type.startsWith("audio/")) {
-                alert("Vui lòng chọn file âm thanh");
-                input.value = "";
-                return;
-            }
-            if (file.size > 1024 * 1024) {
-                if (!confirm("File lớn hơn 1MB có thể gây đầy bộ nhớ. Tiếp tục?")) {
-                    input.value = "";
-                    return;
-                }
-            }
-
-            try {
-                const base64 = await fileToBase64(file);
-                sounds[key] = base64;
-                if (!saveSounds()) {
-                    delete sounds[key];
-                    input.value = "";
-                    return;
-                }
-                renderSoundSettings();
-            } catch(err) {
-                alert("Lỗi đọc file: " + err.message);
-            }
-            input.value = "";
-        });
-    });
-
-    document.querySelectorAll(".sound-btn.upload").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const key = btn.dataset.key;
-            const input = document.querySelector(`.sound-input[data-key="${key}"]`);
-            if (input) input.click();
-        });
-    });
-
-    document.querySelectorAll(".sound-btn.test").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const key = btn.dataset.key;
-            if (!sounds[key]) {
-                alert("Chưa có âm thanh. Bấm 📁 để tải lên.");
-                return;
-            }
-            playSound(key);
-        });
-    });
-
-    document.querySelectorAll(".sound-btn.delete").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const key = btn.dataset.key;
-            if (!sounds[key]) return;
-            if (!confirm(`Xóa âm thanh "${SOUND_LABELS[key]}"?`)) return;
-            delete sounds[key];
-            saveSounds();
-            renderSoundSettings();
-        });
-    });
-
-    el("resetAllSoundsBtn").addEventListener("click", () => {
-        if (!confirm("Xóa TẤT CẢ âm thanh đã tải lên?")) return;
-        sounds = {};
-        saveSounds();
-        renderSoundSettings();
+        localStorage.setItem("bac_sounds_volume", String(soundsVolume));
     });
 }
 
@@ -224,28 +146,28 @@ function updateSoundEnabledLabel(){
     if (lbl) lbl.textContent = soundsEnabled ? "Bật âm thanh" : "Tắt âm thanh";
 }
 
-function renderSoundSettings(){
-    SOUND_KEYS.forEach(key => {
-        const slot = document.querySelector(`.sound-slot[data-key="${key}"]`);
-        const status = document.querySelector(`.sound-slot-status[data-key="${key}"]`);
-        if (!slot || !status) return;
+function renderSoundAvailableList(){
+    const box = el("soundAvailableList");
+    if (!box) return;
+    box.innerHTML = SOUND_KEYS.map(key => {
+        const meta = SOUND_META[key];
+        const has = !!availableSounds[key];
+        return `
+            <div class="sound-available-item ${has ? "has-sound" : ""}">
+                <span class="sound-available-icon">${meta.icon}</span>
+                <span class="sound-available-name">${meta.name}</span>
+                <span class="sound-available-status">${has ? "✅ Đã có" : "❌ Chưa có"}</span>
+                <button class="sound-available-test" data-key="${key}"
+                    ${has ? "" : "disabled"}>▶️</button>
+            </div>
+        `;
+    }).join("");
 
-        if (sounds[key]) {
-            slot.classList.add("has-sound");
-            status.textContent = "✅ Đã có âm thanh";
-        } else {
-            slot.classList.remove("has-sound");
-            status.textContent = "Chưa có âm thanh";
-        }
-    });
-}
-
-function fileToBase64(file){
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+    box.querySelectorAll(".sound-available-test").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const key = btn.dataset.key;
+            if (availableSounds[key]) playSound(key);
+        });
     });
 }
 
@@ -333,33 +255,24 @@ function openDealerPicker(){
 function renderDealerPicker(){
     const box = el("dealerPicker");
     if (!box) return;
-
     const removeBtn = el("removeDealerImageBtn");
-    if (removeBtn) {
-        removeBtn.style.display = currentDealerImage ? "block" : "none";
-    }
+    if (removeBtn) removeBtn.style.display = currentDealerImage ? "block" : "none";
 
     box.innerHTML = DEALER_EMOJIS.map(emoji => {
         const active = !currentDealerImage && emoji === currentDealerEmoji;
-        return `
-            <div class="dealer-option ${active ? "active" : ""}"
-                data-emoji="${emoji}">${emoji}</div>
-        `;
+        return `<div class="dealer-option ${active ? "active" : ""}" data-emoji="${emoji}">${emoji}</div>`;
     }).join("");
 
     box.querySelectorAll(".dealer-option").forEach(opt => {
         opt.addEventListener("click", () => {
-            const emoji = opt.dataset.emoji;
-            currentDealerEmoji = emoji;
+            currentDealerEmoji = opt.dataset.emoji;
             currentDealerImage = "";
-            localStorage.setItem("bac_dealer_emoji", emoji);
+            localStorage.setItem("bac_dealer_emoji", currentDealerEmoji);
             localStorage.removeItem("bac_dealer_image");
             renderDealerAvatar();
             renderDealerPicker();
             updateDealerMessage("Cảm ơn! Tôi sẽ chia bài cho bạn 🎴", true);
-            setTimeout(() => {
-                el("dealerOverlay").classList.remove("show");
-            }, 400);
+            setTimeout(() => el("dealerOverlay").classList.remove("show"), 400);
         });
     });
 }
@@ -369,15 +282,12 @@ function updateDealerMessage(text, force = false){
     const bubble = textEl?.parentElement;
     if (!textEl) return;
     if (!force && textEl.textContent === text) return;
-
     textEl.textContent = text;
-
     if (bubble) {
         bubble.classList.remove("updating");
         void bubble.offsetWidth;
         bubble.classList.add("updating");
     }
-
     const avatar = el("dealerAvatar");
     if (avatar && !avatar.classList.contains("dealing")) {
         avatar.classList.remove("talking");
@@ -385,22 +295,16 @@ function updateDealerMessage(text, force = false){
         avatar.classList.add("talking");
         setTimeout(() => avatar.classList.remove("talking"), 500);
     }
-
     if (!force) playSound("dealer");
 }
 
 function getDealerMessage(){
     if (phase === "betting") {
-        if (countdown <= 3 && countdown > 0) {
-            return `⏰ Nhanh lên! Còn ${countdown} giây!`;
-        }
+        if (countdown <= 3 && countdown > 0) return `⏰ Nhanh lên! Còn ${countdown} giây!`;
         const msgs = [
-            "🎰 Đặt cược đi nào!",
-            "💰 Chọn cửa may mắn nào!",
-            "🎴 Cửa nào đây?",
-            "🍀 Chúc bạn may mắn!",
-            "✨ Cược xong chưa nào?",
-            "🎲 Tay chơi lớn đây rồi!"
+            "🎰 Đặt cược đi nào!", "💰 Chọn cửa may mắn nào!",
+            "🎴 Cửa nào đây?", "🍀 Chúc bạn may mắn!",
+            "✨ Cược xong chưa nào?", "🎲 Tay chơi lớn đây rồi!"
         ];
         return msgs[Math.floor(Math.random() * msgs.length)];
     }
@@ -420,7 +324,6 @@ function triggerDealerDealAnimation(){
     void avatar.offsetWidth;
     avatar.classList.add("dealing");
     setTimeout(() => avatar.classList.remove("dealing"), 700);
-    playSound("deal");
 }
 
 function resizeDealerImage(file, maxSize = 256, quality = 0.85){
@@ -430,14 +333,12 @@ function resizeDealerImage(file, maxSize = 256, quality = 0.85){
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement("canvas");
-                let { width, height } = img;
-                const side = Math.min(width, height);
-                const sx = (width - side) / 2;
-                const sy = (height - side) / 2;
+                const side = Math.min(img.width, img.height);
+                const sx = (img.width - side) / 2;
+                const sy = (img.height - side) / 2;
                 canvas.width = maxSize;
                 canvas.height = maxSize;
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+                canvas.getContext("2d").drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
                 resolve(canvas.toDataURL("image/jpeg", quality));
             };
             img.onerror = reject;
@@ -459,12 +360,10 @@ function setupCollapsibles(){
       if (!wrap) return;
       const isCollapsed = wrap.classList.toggle("collapsed");
       title.classList.toggle("collapsed", isCollapsed);
-      const key = "bac_collapse_" + targetId;
-      localStorage.setItem(key, isCollapsed ? "1" : "0");
+      localStorage.setItem("bac_collapse_" + targetId, isCollapsed ? "1" : "0");
     });
     const targetId = title.dataset.target;
-    const key = "bac_collapse_" + targetId;
-    if (localStorage.getItem(key) === "1") {
+    if (localStorage.getItem("bac_collapse_" + targetId) === "1") {
       const wrap = document.getElementById(targetId);
       if (wrap) wrap.classList.add("collapsed");
       title.classList.add("collapsed");
@@ -476,19 +375,11 @@ function setupCollapsibles(){
 // CHAT PANEL
 // =====================================================
 function setupChatPanel(){
-  const fab = el("chatFab");
-  const closeBtn = el("chatCloseBtn");
-
-  fab.addEventListener("click", () => {
-    if (chatOpen) closeChat();
-    else openChat();
-  });
-  closeBtn.addEventListener("click", closeChat);
-
+  el("chatFab").addEventListener("click", () => chatOpen ? closeChat() : openChat());
+  el("chatCloseBtn").addEventListener("click", closeChat);
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && chatOpen) closeChat();
   });
-
   setupChatDrag();
 }
 
@@ -507,8 +398,7 @@ function closeChat(){
 function setupChatDrag(){
   const panel = el("chatFloat");
   const handle = el("chatDragHandle");
-  let dragging = false;
-  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
   function onStart(e){
     if (e.target.closest(".chat-float-close")) return;
@@ -520,10 +410,8 @@ function setupChatDrag(){
     panel.style.top = rect.top + "px";
     panel.style.right = "auto";
     panel.style.bottom = "auto";
-    startX = touch.clientX;
-    startY = touch.clientY;
-    startLeft = rect.left;
-    startTop = rect.top;
+    startX = touch.clientX; startY = touch.clientY;
+    startLeft = rect.left; startTop = rect.top;
     panel.classList.add("dragging");
     e.preventDefault();
   }
@@ -535,10 +423,8 @@ function setupChatDrag(){
     const rect = panel.getBoundingClientRect();
     const maxX = window.innerWidth - rect.width;
     const maxY = window.innerHeight - rect.height;
-    let newX = Math.max(0, Math.min(startLeft + dx, maxX));
-    let newY = Math.max(0, Math.min(startTop + dy, maxY));
-    panel.style.left = newX + "px";
-    panel.style.top = newY + "px";
+    panel.style.left = Math.max(0, Math.min(startLeft + dx, maxX)) + "px";
+    panel.style.top = Math.max(0, Math.min(startTop + dy, maxY)) + "px";
     e.preventDefault();
   }
   function onEnd(){
@@ -559,73 +445,58 @@ function setupChatDrag(){
 // CODE MODAL
 // =====================================================
 function setupCodeModal(){
-  const codeBtn = el("codeBtn");
-  const closeBtn = el("closeCodeBtn");
-  const redeemBtn = el("redeemCodeBtn");
-  const input = el("codeInput");
-  const msg = el("codeMsg");
-
-  codeBtn.addEventListener("click", () => {
+  el("codeBtn").addEventListener("click", () => {
     if (!currentUsername) {
       openAccountModal();
       showAuthMessage("Hãy đăng nhập để nhập code.");
       return;
     }
     el("codeOverlay").classList.add("show");
-    input.value = "";
-    msg.textContent = "";
-    msg.style.color = "";
-    setTimeout(() => input.focus(), 200);
+    el("codeInput").value = "";
+    el("codeMsg").textContent = "";
+    setTimeout(() => el("codeInput").focus(), 200);
     loadCodeHistory();
   });
-
-  closeBtn.addEventListener("click", () => {
-    el("codeOverlay").classList.remove("show");
-  });
-
+  el("closeCodeBtn").addEventListener("click", () => el("codeOverlay").classList.remove("show"));
   el("codeOverlay").addEventListener("click", e => {
-    if (e.target === el("codeOverlay")) {
-      el("codeOverlay").classList.remove("show");
-    }
+    if (e.target === el("codeOverlay")) el("codeOverlay").classList.remove("show");
   });
 
   function doRedeem(){
-    const code = input.value.trim().toUpperCase();
+    const code = el("codeInput").value.trim().toUpperCase();
     if (!code) {
-      msg.textContent = "Vui lòng nhập code";
-      msg.style.color = "var(--bad)";
+      el("codeMsg").textContent = "Vui lòng nhập code";
+      el("codeMsg").style.color = "var(--bad)";
       return;
     }
-    redeemBtn.disabled = true;
-    redeemBtn.textContent = "⏳ Đang xử lý...";
-    msg.textContent = "";
+    const btn = el("redeemCodeBtn");
+    btn.disabled = true;
+    btn.textContent = "⏳ Đang xử lý...";
+    el("codeMsg").textContent = "";
 
-    api("/api/codes/redeem", {
-      method: "POST",
-      body: JSON.stringify({ code })
-    })
+    api("/api/codes/redeem", { method: "POST", body: JSON.stringify({ code }) })
     .then(res => {
       balance = res.newBalance;
       updateBalanceUI();
-      msg.textContent = `🎉 Nhận thành công ${res.value.toLocaleString("vi-VN")} VNĐ!`;
-      msg.style.color = "var(--good)";
-      input.value = "";
+      el("codeMsg").textContent = `🎉 Nhận thành công ${res.value.toLocaleString("vi-VN")} VNĐ!`;
+      el("codeMsg").style.color = "var(--good)";
+      el("codeInput").value = "";
       showCodeSuccessFlash(res.value);
       loadCodeHistory();
       playSound("win");
     })
     .catch(err => {
-      msg.textContent = "❌ " + err.message;
-      msg.style.color = "var(--bad)";
+      el("codeMsg").textContent = "❌ " + err.message;
+      el("codeMsg").style.color = "var(--bad)";
     })
     .finally(() => {
-      redeemBtn.disabled = false;
-      redeemBtn.textContent = "🎁 Nhận thưởng";
+      btn.disabled = false;
+      btn.textContent = "🎁 Nhận thưởng";
     });
   }
 
-  redeemBtn.addEventListener("click", doRedeem);
-  input.addEventListener("keydown", e => {
+  el("redeemCodeBtn").addEventListener("click", doRedeem);
+  el("codeInput").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); doRedeem(); }
   });
 }
@@ -662,13 +533,10 @@ async function loadCodeHistory(){
 
 function showCodeSuccessFlash(amount){
   const flash = el("resultFlash");
-  const icon = el("flashIcon");
-  const title = el("flashTitle");
-  const amt = el("flashAmount");
   flash.className = "result-flash";
-  icon.textContent = "🎁";
-  title.textContent = "NHẬN CODE";
-  amt.textContent = "+" + amount.toLocaleString("vi-VN");
+  el("flashIcon").textContent = "🎁";
+  el("flashTitle").textContent = "NHẬN CODE";
+  el("flashAmount").textContent = "+" + amount.toLocaleString("vi-VN");
   flash.classList.add("show", "win");
   const content = flash.querySelector(".result-flash-content");
   content.style.animation = "none";
@@ -682,13 +550,8 @@ function showCodeSuccessFlash(amount){
 // AVATAR EDITOR
 // =====================================================
 function setupAvatarEditor(){
-  const input = el("avatarInput");
-  const chooseBtn = el("chooseAvatarBtn");
-  const backBtn = el("backFromAvatar");
-
-  chooseBtn.addEventListener("click", () => input.click());
-
-  input.addEventListener("change", async e => {
+  el("chooseAvatarBtn").addEventListener("click", () => el("avatarInput").click());
+  el("avatarInput").addEventListener("change", async e => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -704,8 +567,7 @@ function setupAvatarEditor(){
       updateAvatarPreview();
 
       const res = await api("/api/auth/update-avatar", {
-        method: "POST",
-        body: JSON.stringify({ avatar: resized })
+        method: "POST", body: JSON.stringify({ avatar: resized })
       });
       currentAvatar = res.avatar;
       localStorage.setItem("bac_avatar", currentAvatar);
@@ -732,7 +594,7 @@ function setupAvatarEditor(){
     }
   });
 
-  backBtn.addEventListener("click", () => {
+  el("backFromAvatar").addEventListener("click", () => {
     pendingAvatar = "";
     el("avatarEditor").style.display = "none";
     el("profileView").style.display = "block";
@@ -741,14 +603,9 @@ function setupAvatarEditor(){
 
 function updateAvatarPreview(){
   const box = el("avatarPreview");
-  if (pendingAvatar) {
-    box.innerHTML = `<img src="${pendingAvatar}" alt="preview">`;
-  } else if (currentAvatar) {
-    box.innerHTML = `<img src="${currentAvatar}" alt="current">`;
-  } else {
-    box.innerHTML = currentUsername
-      ? currentUsername.charAt(0).toUpperCase() : "?";
-  }
+  if (pendingAvatar) box.innerHTML = `<img src="${pendingAvatar}" alt="preview">`;
+  else if (currentAvatar) box.innerHTML = `<img src="${currentAvatar}" alt="current">`;
+  else box.innerHTML = currentUsername ? currentUsername.charAt(0).toUpperCase() : "?";
 }
 
 function resizeImage(file, maxSize = 128, quality = 0.85){
@@ -758,14 +615,12 @@ function resizeImage(file, maxSize = 128, quality = 0.85){
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        let { width, height } = img;
-        const side = Math.min(width, height);
-        const sx = (width - side) / 2;
-        const sy = (height - side) / 2;
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
         canvas.width = maxSize;
         canvas.height = maxSize;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
+        canvas.getContext("2d").drawImage(img, sx, sy, side, side, 0, 0, maxSize, maxSize);
         resolve(canvas.toDataURL("image/jpeg", quality));
       };
       img.onerror = reject;
@@ -783,8 +638,6 @@ function setupCustomBet(){
   const customBtn = el("customChipBtn");
   const customRow = el("customBetRow");
   const customInput = el("customBetInput");
-  const customOk = el("customBetOk");
-  const customCancel = el("customBetCancel");
   const allInBtn = el("allInBtn");
 
   customBtn.addEventListener("click", () => {
@@ -802,14 +655,8 @@ function setupCustomBet(){
 
   function applyCustom(){
     const val = Math.floor(Number(customInput.value));
-    if (!val || val < 1) {
-      alert("Số tiền không hợp lệ (tối thiểu 1)");
-      return;
-    }
-    if (val > balance) {
-      alert("Số tiền vượt quá số dư!");
-      return;
-    }
+    if (!val || val < 1) { alert("Số tiền không hợp lệ (tối thiểu 1)"); return; }
+    if (val > balance) { alert("Số tiền vượt quá số dư!"); return; }
     customBet = val;
     selectedChip = val;
     allInMode = false;
@@ -822,15 +669,12 @@ function setupCustomBet(){
     });
   }
 
-  customOk.addEventListener("click", applyCustom);
+  el("customBetOk").addEventListener("click", applyCustom);
   customInput.addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); applyCustom(); }
     if (e.key === "Escape") customRow.style.display = "none";
   });
-
-  customCancel.addEventListener("click", () => {
-    customRow.style.display = "none";
-  });
+  el("customBetCancel").addEventListener("click", () => customRow.style.display = "none");
 
   allInBtn.addEventListener("click", () => {
     if (!currentUsername) {
@@ -838,24 +682,14 @@ function setupCustomBet(){
       showAuthMessage("Hãy đăng nhập để đặt cược.");
       return;
     }
-    if (phase !== "betting") {
-      alert("Chỉ có thể All-In trong thời gian đặt cược!");
-      return;
-    }
-    if (balance <= 0) {
-      alert("Bạn không còn tiền để All-In!");
-      return;
-    }
+    if (phase !== "betting") { alert("Chỉ có thể All-In trong thời gian đặt cược!"); return; }
+    if (balance <= 0) { alert("Bạn không còn tiền để All-In!"); return; }
 
     allInMode = !allInMode;
-
     if (allInMode) {
       customBet = 0;
       const cbtn = el("customChipBtn");
-      if (cbtn) {
-        cbtn.textContent = "✏️";
-        cbtn.classList.remove("active");
-      }
+      if (cbtn) { cbtn.textContent = "✏️"; cbtn.classList.remove("active"); }
       el("customBetRow").style.display = "none";
       document.querySelectorAll(".chip").forEach(x => {
         if (x !== allInBtn) x.classList.remove("active");
@@ -874,9 +708,8 @@ function setupCustomBet(){
 function updateAllInText(){
   const btn = el("allInBtn");
   if (!btn || !allInMode) return;
-  const amount = balance;
-  btn.textContent = amount > 0
-    ? `🔥 ALL-IN ${amount >= 1000 ? Math.floor(amount/1000) + "K" : amount}`
+  btn.textContent = balance > 0
+    ? `🔥 ALL-IN ${balance >= 1000 ? Math.floor(balance/1000) + "K" : balance}`
     : "🔥 ALL-IN";
 }
 
@@ -901,8 +734,7 @@ async function loadTopPlayers(){
     renderTopPlayers();
     renderChatList(_chatCache);
   } catch(e) {
-    el("topList").innerHTML =
-      `<div class="chat-empty" style="height:auto;padding:20px;">Lỗi: ${e.message}</div>`;
+    el("topList").innerHTML = `<div class="chat-empty" style="height:auto;padding:20px;">Lỗi: ${e.message}</div>`;
   }
 }
 
@@ -927,9 +759,7 @@ function renderTopPlayers(){
     const rankCls = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const rankIcon = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
     const value = u[lbl.field] || 0;
-    const avatarHTML = u.avatar
-      ? `<img src="${u.avatar}" alt="">`
-      : u.username.charAt(0).toUpperCase();
+    const avatarHTML = u.avatar ? `<img src="${u.avatar}" alt="">` : u.username.charAt(0).toUpperCase();
     return `
       <div class="top-item ${isMe ? "me" : ""}">
         <div class="top-rank ${rankCls}">${rankIcon}</div>
@@ -954,10 +784,8 @@ function initSocket(){
   if (socket) return;
   socket = io(SOCKET_URL, { auth: { token } });
 
-  socket.on("connect", () => {});
-
   socket.on("force-logout", ({ reason }) => {
-    alert("🚫 " + (reason || "Tài khoản đã bị khóa. Vui lòng đăng nhập lại."));
+    alert("🚫 " + (reason || "Tài khoản đã bị khóa."));
     doLogout();
   });
 
@@ -1010,11 +838,16 @@ function initSocket(){
 // GAME STATE
 // =====================================================
 function applyGameState(state){
+  const prevPhase = phase;
+
   if (state.roundId !== lastRoundId) {
     lastRoundId = state.roundId;
     myBets = { player:0, banker:0, tie:0 };
+    lastRevealedCount = -1;
+    lastWarnCountdown = -1;
     if (state.phase === "betting") refreshMyBets();
   }
+
   phase = state.phase;
   countdown = state.countdown;
   playerScore = state.playerScore;
@@ -1026,6 +859,7 @@ function applyGameState(state){
     leaderboard = state.leaderboard;
     renderLeaderboard();
   }
+
   if (phase === "betting") el("phase").textContent = "ĐANG ĐẶT CƯỢC";
   else if (phase === "dealing") el("phase").textContent = "CHIA BÀI";
   else if (phase === "result") el("phase").textContent =
@@ -1034,6 +868,29 @@ function applyGameState(state){
 
   el("countdown").textContent = phase === "betting" ? countdown : "•••";
 
+  // 🔊 Âm thanh: còn 4s
+  if (phase === "betting" && countdown === 4 && lastWarnCountdown !== 4) {
+    playSound("betWarning");
+    lastWarnCountdown = 4;
+  }
+  if (phase === "betting" && countdown > 4) {
+    lastWarnCountdown = -1;
+  }
+
+  // 🔊 Âm thanh: dừng đặt cược (chuyển từ betting → dealing)
+  if (phase === "dealing" && prevPhase === "betting") {
+    playSound("betStop");
+  }
+
+  // 🔊 Âm thanh: lật bài (đếm số lá revealed)
+  const totalRevealed = player.filter(c => c.revealed).length
+                      + banker.filter(c => c.revealed).length;
+  if (totalRevealed > lastRevealedCount && lastRevealedCount >= 0) {
+    playSound("deal");
+  }
+  lastRevealedCount = totalRevealed;
+
+  // Dealer nói
   if (phase === "betting" && countdown === 3) {
     updateDealerMessage("⏰ Còn 3 giây! Đặt nhanh nào!");
   }
@@ -1058,21 +915,15 @@ function applyGameState(state){
     renderHistory();
   }
 
-  // 🎩 Dealer nói theo phase
+  // Dealer phase change
   const phaseChanged = lastDealerPhase !== phase;
   const resultChanged = lastDealerResult !== state.result;
 
   if (phaseChanged || resultChanged) {
     lastDealerPhase = phase;
     lastDealerResult = state.result;
-
-    if (phase === "dealing" && phaseChanged) {
-      triggerDealerDealAnimation();
-    }
-
-    setTimeout(() => {
-      updateDealerMessage(getDealerMessage());
-    }, phase === "dealing" ? 200 : 0);
+    if (phase === "dealing" && phaseChanged) triggerDealerDealAnimation();
+    setTimeout(() => updateDealerMessage(getDealerMessage()), phase === "dealing" ? 200 : 0);
   }
 }
 
@@ -1151,7 +1002,6 @@ function updateBalanceUI(){
 // =====================================================
 async function placeBet(side){
   playSound("click");
-
   if (!currentUsername) {
     openAccountModal();
     showAuthMessage("Hãy đăng nhập để đặt cược.");
@@ -1162,22 +1012,15 @@ async function placeBet(side){
   if (side === "banker" && myBets.player > 0) return;
 
   let amount;
-  if (allInMode) {
-    amount = balance;
-  } else if (customBet > 0) {
-    amount = customBet;
-  } else {
-    amount = selectedChip;
-  }
+  if (allInMode) amount = balance;
+  else if (customBet > 0) amount = customBet;
+  else amount = selectedChip;
 
   if (amount <= 0) {
     if (allInMode) alert("Bạn không còn tiền để All-In!");
     return;
   }
-  if (balance < amount) {
-    alert("Không đủ số dư.");
-    return;
-  }
+  if (balance < amount) { alert("Không đủ số dư."); return; }
 
   balance -= amount;
   myBets[side] += amount;
@@ -1212,31 +1055,25 @@ async function refreshMyBets(){
 }
 
 // =====================================================
-// LEADERBOARD (Cược ván này)
+// LEADERBOARD
 // =====================================================
 function renderLeaderboard(){
   const box = el("leaderboardList");
   el("leaderboardCount").textContent = leaderboard.length + " người cược";
-
   if (!leaderboard.length) {
     box.innerHTML = `<div class="chat-empty" style="height:auto;padding:20px;">Chưa có ai đặt cược</div>`;
     return;
   }
-
   box.innerHTML = leaderboard.map((entry, i) => {
     const isMe = currentUsername && entry.username === currentUsername;
     const isOnline = onlineUsers.includes(entry.username);
     const rank = i + 1;
     const rankCls = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const rankIcon = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
-
     let avatarSrc = entry.avatar || "";
     if (isMe && !avatarSrc && currentAvatar) avatarSrc = currentAvatar;
-
-    const avatarHTML = avatarSrc
-      ? `<img src="${avatarSrc}" alt="">`
-      : escapeHTML(entry.username.charAt(0).toUpperCase());
-
+    const avatarHTML = avatarSrc ? `<img src="${avatarSrc}" alt="">`
+                                 : escapeHTML(entry.username.charAt(0).toUpperCase());
     return `
       <div class="leaderboard-item ${isMe ? "me" : ""}">
         <div class="leaderboard-rank ${rankCls}">${rankIcon}</div>
@@ -1260,7 +1097,6 @@ function renderLeaderboard(){
       </div>
     `;
   }).join("");
-
   if (currentUsername) {
     const meEl = box.querySelector(".leaderboard-item.me");
     if (meEl) {
@@ -1310,9 +1146,8 @@ function renderStaticCards(id, cards){
   }
   c.innerHTML = cards.map(staticCardHTML).join("");
 }
-function resultName(r){
-  return r==="player"?"PLAYER":r==="banker"?"BANKER":"TIE";
-}
+function resultName(r){ return r==="player"?"PLAYER":r==="banker"?"BANKER":"TIE"; }
+
 function openHistoryDetail(idx){
   const item = historyList[idx];
   if (!item) return;
@@ -1334,30 +1169,26 @@ function closeHistoryDetail(){ el("historyOverlay").classList.remove("show"); }
 // =====================================================
 function showResultFlash(net, stake, result){
   const flash = el("resultFlash");
-  const icon = el("flashIcon");
-  const title = el("flashTitle");
-  const amount = el("flashAmount");
   flash.className = "result-flash";
-
   if (stake <= 0) {
-    icon.textContent = "🎲";
-    title.textContent = resultName(result);
-    amount.textContent = "Kết quả ván";
+    el("flashIcon").textContent = "🎲";
+    el("flashTitle").textContent = resultName(result);
+    el("flashAmount").textContent = "Kết quả ván";
     flash.classList.add("show", "push");
   } else if (net > 0) {
-    icon.textContent = "🎉";
-    title.textContent = "THẮNG";
-    amount.textContent = "+" + net.toLocaleString("vi-VN");
+    el("flashIcon").textContent = "🎉";
+    el("flashTitle").textContent = "THẮNG";
+    el("flashAmount").textContent = "+" + net.toLocaleString("vi-VN");
     flash.classList.add("show", "win");
   } else if (net < 0) {
-    icon.textContent = "😔";
-    title.textContent = "THUA";
-    amount.textContent = net.toLocaleString("vi-VN");
+    el("flashIcon").textContent = "😔";
+    el("flashTitle").textContent = "THUA";
+    el("flashAmount").textContent = net.toLocaleString("vi-VN");
     flash.classList.add("show", "lose");
   } else {
-    icon.textContent = "🤝";
-    title.textContent = "HÒA VỐN";
-    amount.textContent = resultName(result);
+    el("flashIcon").textContent = "🤝";
+    el("flashTitle").textContent = "HÒA VỐN";
+    el("flashAmount").textContent = resultName(result);
     flash.classList.add("show", "push");
   }
   const content = flash.querySelector(".result-flash-content");
@@ -1365,9 +1196,7 @@ function showResultFlash(net, stake, result){
   void content.offsetWidth;
   content.style.animation = "";
   clearTimeout(flash._timer);
-  flash._timer = setTimeout(() => {
-    flash.classList.remove("show");
-  }, 2700);
+  flash._timer = setTimeout(() => flash.classList.remove("show"), 2700);
 }
 
 // =====================================================
@@ -1378,9 +1207,8 @@ function chatItemHTML(item){
   const date = new Date(item.createdAt);
   const time = date.toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"});
   let avatarHTML = escapeHTML(item.username.charAt(0).toUpperCase());
-  if (mine && currentAvatar) {
-    avatarHTML = `<img src="${currentAvatar}" alt="">`;
-  } else {
+  if (mine && currentAvatar) avatarHTML = `<img src="${currentAvatar}" alt="">`;
+  else {
     const u = topPlayers.find(p => p.username === item.username);
     if (u && u.avatar) avatarHTML = `<img src="${u.avatar}" alt="">`;
   }
@@ -1404,9 +1232,7 @@ function renderChatList(list){
   box.innerHTML = list.map(chatItemHTML).join("");
   box.scrollTop = box.scrollHeight;
 }
-function updateChatAvatars(){
-  renderChatList(_chatCache);
-}
+function updateChatAvatars(){ renderChatList(_chatCache); }
 function sendChat(){
   if (!currentUsername) {
     openAccountModal();
@@ -1518,7 +1344,6 @@ function doLogout(){
   const defaultChip = document.querySelector('.chip[data-chip="25"]');
   if (defaultChip) defaultChip.classList.add("active");
   selectedChip = 25;
-
   leaderboard = [];
   renderLeaderboard();
   updateAccountUI(); updateBalanceUI(); updateBetUI();
@@ -1692,6 +1517,8 @@ el("themeBtn").addEventListener("click", function(){
   updateAccountUI();
   updateBalanceUI();
   updateBetUI();
+
+  await loadSoundsConfig();          // 🔊 load danh sách âm thanh từ server
 
   setupCollapsibles();
   setupChatPanel();
