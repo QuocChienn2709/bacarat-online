@@ -14,7 +14,7 @@ const $ = id => document.getElementById(id);
 
 const SOUND_KEYS = ["betWarning", "betStop", "deal", "win", "lose", "click", "dealer"];
 const SOUND_META = {
-    betWarning: { icon: "⏰", name: "Cảnh báo 4s", desc: "Phát khi còn 4 giây đặt cược" },
+ betWarning: { icon: "⏰", name: "Cảnh báo 10s", desc: "Phát khi còn 10 giây đặt cược" },
     betStop:    { icon: "🛑", name: "Dừng đặt cược", desc: "Phát khi hết thời gian đặt cược" },
     deal:       { icon: "🎴", name: "Lật bài", desc: "Phát khi lật mỗi lá bài" },
     win:        { icon: "🎉", name: "Thắng", desc: "Phát khi người chơi thắng" },
