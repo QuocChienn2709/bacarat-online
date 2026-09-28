@@ -171,3 +171,93 @@ tr:hover{background:#1a1f38}
     color:#aeb7d0;
     border:1px solid rgba(174,183,208,.3);
 }
+/* ========== SOUND ADMIN ========== */
+.sound-admin-note{
+    padding:12px 16px;
+    border-radius:12px;
+    background:rgba(255,215,106,.08);
+    border:1px solid rgba(255,215,106,.2);
+    color:#aeb7d0;
+    font-size:13px;
+    line-height:1.6;
+    margin-bottom:20px;
+}
+.sound-admin-note b{color:#ffd76a}
+
+.sound-admin-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+    gap:15px;
+}
+.sound-admin-card{
+    padding:16px;
+    border-radius:14px;
+    background:#12162a;
+    border:1px solid #2a3050;
+    transition:border-color .2s;
+}
+.sound-admin-card.has-sound{
+    border-color:rgba(55,214,122,.4);
+    background:linear-gradient(135deg,rgba(55,214,122,.05),rgba(18,22,42,1));
+}
+.sound-admin-header{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:12px;
+}
+.sound-admin-icon{
+    font-size:26px;
+    flex-shrink:0;
+}
+.sound-admin-title strong{
+    display:block;
+    font-size:15px;
+    color:#fff;
+}
+.sound-admin-title small{
+    display:block;
+    font-size:11px;
+    color:#aeb7d0;
+    margin-top:2px;
+}
+.sound-admin-info{
+    padding:8px 10px;
+    border-radius:8px;
+    background:rgba(0,0,0,.25);
+    margin-bottom:10px;
+    font-size:12px;
+    color:#aeb7d0;
+    min-height:36px;
+    word-break:break-all;
+}
+.sound-admin-info strong{color:#6ee79c}
+
+.sound-admin-actions{
+    display:flex;
+    gap:8px;
+}
+.sound-admin-actions button{
+    flex:1;
+    padding:10px;
+    font-size:12px;
+    font-weight:700;
+    border-radius:10px;
+}
+.sound-admin-actions .btn-play{background:#5b8cff}
+.sound-admin-actions .btn-play:disabled{opacity:.4;cursor:not-allowed}
+.sound-admin-actions .btn-del{background:#ff5c7a}
+.sound-admin-actions .btn-del:disabled{opacity:.4;cursor:not-allowed}
+.sound-admin-upload{
+    width:100%;
+    padding:10px;
+    font-size:12px;
+    font-weight:700;
+    border-radius:10px;
+    background:linear-gradient(135deg,#5b8cff,#7c5cff);
+    margin-bottom:8px;
+}
+.sound-admin-upload.busy{
+    opacity:.6;
+    cursor:wait;
+}
