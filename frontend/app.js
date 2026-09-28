@@ -29,9 +29,16 @@ let chatOpen = false;
 let chatUnread = 0;
 let pendingAvatar = "";
 let _chatCache = [];
-
+let currentDealer = localStorage.getItem("bac_dealer") || "🎩";
+let dealerMessageTimer = null;
+let lastDealerPhase = "";
+let lastDealerResult = "";
 const el = id => document.getElementById(id);
-
+const DEALER_EMOJIS = [
+    "🎩", "👨‍💼", "👩‍💼", "🤵",
+    "👑", "🦁", "🐯", "🎭",
+    "🃏", "🎰", "🤠", "🧙"
+];
 function escapeHTML(t){
   return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;")
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
@@ -367,7 +374,119 @@ function resizeImage(file, maxSize = 128, quality = 0.85){
     reader.readAsDataURL(file);
   });
 }
+// ============ 🎩 DEALER ============
+function setupDealer(){
+    // Set avatar ban đầu
+    const avatar = el("dealerAvatar");
+    if (avatar) {
+        avatar.textContent = currentDealer;
+        avatar.addEventListener("click", openDealerPicker);
+    }
 
+    el("closeDealerBtn").addEventListener("click", () => {
+        el("dealerOverlay").classList.remove("show");
+    });
+
+    el("dealerOverlay").addEventListener("click", e => {
+        if (e.target === el("dealerOverlay")) {
+            el("dealerOverlay").classList.remove("show");
+        }
+    });
+
+    renderDealerPicker();
+}
+
+function openDealerPicker(){
+    renderDealerPicker();
+    el("dealerOverlay").classList.add("show");
+}
+
+function renderDealerPicker(){
+    const box = el("dealerPicker");
+    if (!box) return;
+    box.innerHTML = DEALER_EMOJIS.map(e => `
+        <div class="dealer-option ${e === currentDealer ? "active" : ""}"
+            data-emoji="${e}">${e}</div>
+    `).join("");
+
+    box.querySelectorAll(".dealer-option").forEach(opt => {
+        opt.addEventListener("click", () => {
+            const emoji = opt.dataset.emoji;
+            currentDealer = emoji;
+            localStorage.setItem("bac_dealer", emoji);
+            el("dealerAvatar").textContent = emoji;
+            renderDealerPicker();
+            // Hiệu ứng chào
+            updateDealerMessage("Cảm ơn! Tôi sẽ chia bài cho bạn 🎴", true);
+            setTimeout(() => {
+                el("dealerOverlay").classList.remove("show");
+            }, 400);
+        });
+    });
+}
+
+// Cập nhật bong bóng nói của dealer
+function updateDealerMessage(text, force = false){
+    const bubble = el("dealerBubble") || el("dealerText")?.parentElement;
+    const textEl = el("dealerText");
+    if (!textEl) return;
+
+    if (!force && textEl.textContent === text) return;
+
+    textEl.textContent = text;
+
+    if (bubble) {
+        bubble.classList.remove("updating");
+        void bubble.offsetWidth;
+        bubble.classList.add("updating");
+    }
+
+    // Animation "đang nói"
+    const avatar = el("dealerAvatar");
+    if (avatar && !avatar.classList.contains("dealing")) {
+        avatar.classList.remove("talking");
+        void avatar.offsetWidth;
+        avatar.classList.add("talking");
+        setTimeout(() => avatar.classList.remove("talking"), 500);
+    }
+}
+
+// Xác định câu nói theo phase
+function getDealerMessage(){
+    if (phase === "betting") {
+        if (countdown <= 3 && countdown > 0) {
+            return `⏰ Nhanh lên! Còn ${countdown} giây!`;
+        }
+        const bettingMsgs = [
+            "🎰 Đặt cược đi nào!",
+            "💰 Chọn cửa may mắn nào!",
+            "🎴 Cửa nào đây?",
+            "🍀 Chúc bạn may mắn!",
+            "✨ Cược xong chưa nào?",
+            "🎲 Tay chơi lớn đây rồi!"
+        ];
+        return bettingMsgs[Math.floor(Math.random() * bettingMsgs.length)];
+    }
+    if (phase === "dealing") {
+        return "🎴 Chia bài...";
+    }
+    if (phase === "result") {
+        if (result === "player") return "🎉 PLAYER thắng!";
+        if (result === "banker") return "🎉 BANKER thắng!";
+        return "🤝 Hòa!";
+    }
+    return "🎩";
+}
+
+// Hiệu ứng dealer "lắc mình" khi chia
+function triggerDealerDealAnimation(){
+    const avatar = el("dealerAvatar");
+    if (!avatar) return;
+    avatar.classList.remove("dealing");
+    void avatar.offsetWidth;
+    avatar.classList.add("dealing");
+    setTimeout(() => avatar.classList.remove("dealing"), 700);
+}
 // ============ CUSTOM BET + ALL-IN ============
 function setupCustomBet(){
   const customBtn = el("customChipBtn");
@@ -593,6 +712,24 @@ function applyGameState(state){
     myBets = { player:0, banker:0, tie:0 };
     if (state.phase === "betting") refreshMyBets();
   }
+  // 🎩 Cập nhật dealer theo phase
+const phaseChanged = lastDealerPhase !== phase;
+const resultChanged = lastDealerResult !== state.result;
+
+if (phaseChanged || resultChanged) {
+    lastDealerPhase = phase;
+    lastDealerResult = state.result;
+
+    // Nếu vừa bắt đầu chia bài → animation
+    if (phase === "dealing" && phaseChanged) {
+        triggerDealerDealAnimation();
+    }
+
+    // Update message
+    setTimeout(() => {
+        updateDealerMessage(getDealerMessage());
+    }, phase === "dealing" ? 200 : 0);
+}
   phase = state.phase;
   countdown = state.countdown;
   playerScore = state.playerScore;
@@ -610,15 +747,15 @@ function applyGameState(state){
     state.result === "player" ? "PLAYER" :
     state.result === "banker" ? "BANKER" : "TIE";
 
-  el("countdown").textContent = phase === "betting" ? countdown : "•••";
-  renderHands();
+el("countdown").textContent = phase === "betting" ? countdown : "•••";
 
-  if (phase !== "betting") {
-    document.querySelectorAll(".bet-option").forEach(b => b.classList.add("disabled"));
-  } else {
-    updateBetUI();
-  }
-
+// 🎩 Dealer nhắc khi sắp hết giờ
+if (phase === "betting" && countdown > 0 && countdown <= 3 && countdown !== lastDealerPhase) {
+    updateDealerMessage(getDealerMessage());
+}
+if (phase === "betting" && countdown === 3) {
+    updateDealerMessage("⏰ Còn 3 giây! Đặt nhanh nào!");
+}
   const ph = el("playerHand"), bh = el("bankerHand");
   ph.classList.remove("winner"); bh.classList.remove("winner");
   if (phase === "result") {
@@ -1236,7 +1373,7 @@ el("themeBtn").addEventListener("click", function(){
   setupTopTabs();
   setupCustomBet();
   setupCodeModal();
-
+setupDealer();
   loadTopPlayers();
 
   try {
