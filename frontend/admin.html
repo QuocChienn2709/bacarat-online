@@ -30,6 +30,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="users" onclick="Admin.switchTab('users')">👥 Người chơi</button>
       <button class="tab" data-tab="codes" onclick="Admin.switchTab('codes')">🎁 Codes</button>
+      <button class="tab" data-tab="sounds" onclick="Admin.switchTab('sounds')">🔊 Âm thanh</button>
     </div>
 
     <!-- USERS TAB -->
@@ -113,6 +114,27 @@
         </table>
       </div>
     </div>
+
+    <!-- SOUNDS TAB -->
+    <div id="tabSounds" class="tab-content hidden">
+      <div class="stats-row">
+        <div class="stat-card">
+          <small>Tổng âm thanh</small>
+          <strong id="totalSounds">0</strong>
+        </div>
+        <div class="stat-card">
+          <small>Tổng dung lượng</small>
+          <strong id="totalSoundSize">0 KB</strong>
+        </div>
+      </div>
+
+      <div class="sound-admin-note">
+        💡 Upload âm thanh cho từng sự kiện. Người chơi sẽ tự động tải và phát đúng lúc.
+        <br>Chấp nhận file <b>.mp3, .wav, .ogg</b>, tối đa <b>8MB</b>.
+      </div>
+
+      <div class="sound-admin-grid" id="soundAdminGrid"></div>
+    </div>
   </div>
 </div>
 
@@ -130,7 +152,7 @@
   </div>
 </div>
 
-<!-- CODE CREATE MODAL -->
+<!-- CODE MODAL -->
 <div class="modal" id="codeModal">
   <div class="modal-box" style="max-width:500px">
     <h3>🎁 Tạo code mới</h3>
