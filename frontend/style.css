@@ -685,3 +685,159 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     color:var(--text-2);
     font-size:10px;
 }
+/* ========== DEALER ZONE ========== */
+.dealer-zone{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding:10px 14px;
+    margin-bottom:12px;
+    border-radius:18px;
+    background:linear-gradient(135deg,rgba(91,140,255,.08),rgba(124,92,255,.08));
+    border:1px solid rgba(255,215,106,.2);
+    position:relative;
+    animation:dealerZoneIn .4s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes dealerZoneIn{
+    from{opacity:0;transform:translateY(-8px)}
+    to{opacity:1;transform:translateY(0)}
+}
+
+.dealer-avatar{
+    width:60px;
+    height:60px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    font-size:30px;
+    background:linear-gradient(135deg,#2a3050,#4b5ca3);
+    border:3px solid rgba(255,215,106,.45);
+    cursor:pointer;
+    transition:transform .3s, box-shadow .3s, border-color .3s;
+    box-shadow:0 0 20px rgba(255,215,106,.2);
+    user-select:none;
+    flex-shrink:0;
+    position:relative;
+}
+.dealer-avatar:hover{
+    transform:scale(1.05);
+    box-shadow:0 0 30px rgba(255,215,106,.5);
+    border-color:rgba(255,215,106,.7);
+}
+.dealer-avatar::after{
+    content:"✎";
+    position:absolute;
+    bottom:-2px;
+    right:-2px;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:var(--gold);
+    color:#101522;
+    font-size:11px;
+    font-weight:900;
+    display:grid;
+    place-items:center;
+    border:2px solid var(--bg-2);
+    opacity:0;
+    transition:opacity .2s;
+}
+.dealer-avatar:hover::after{
+    opacity:1;
+}
+
+/* Animation khi chia bài */
+.dealer-avatar.dealing{
+    animation:dealerDeal .6s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes dealerDeal{
+    0%  { transform:scale(1) rotate(0); }
+    25% { transform:scale(1.15) rotate(-8deg); box-shadow:0 0 40px rgba(255,215,106,.8); }
+    50% { transform:scale(1.15) rotate(8deg); }
+    75% { transform:scale(1.1) rotate(-5deg); }
+    100%{ transform:scale(1) rotate(0); box-shadow:0 0 20px rgba(255,215,106,.2); }
+}
+
+/* Pulse khi dealer "nói" */
+.dealer-avatar.talking{
+    animation:dealerTalk .5s ease;
+}
+@keyframes dealerTalk{
+    0%,100%{ transform:scale(1); }
+    50%    { transform:scale(1.08); }
+}
+
+.dealer-bubble{
+    position:relative;
+    padding:10px 16px;
+    border-radius:14px;
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--glass-border);
+    font-size:12.5px;
+    font-weight:600;
+    max-width:260px;
+    color:var(--text-1);
+    line-height:1.4;
+    transition:transform .3s, background .3s;
+}
+.dealer-bubble::before{
+    content:"";
+    position:absolute;
+    left:-6px;
+    top:50%;
+    transform:translateY(-50%) rotate(45deg);
+    width:10px;
+    height:10px;
+    background:rgba(255,255,255,.08);
+    border-left:1px solid var(--glass-border);
+    border-bottom:1px solid var(--glass-border);
+}
+.dealer-bubble.updating{
+    animation:bubblePulse .4s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes bubblePulse{
+    0%  { transform:scale(1); background:rgba(255,255,255,.08); }
+    50% { transform:scale(1.04); background:rgba(255,215,106,.15); }
+    100%{ transform:scale(1); background:rgba(255,255,255,.08); }
+}
+
+/* ========== DEALER PICKER ========== */
+.dealer-picker{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    padding:12px 0;
+}
+.dealer-option{
+    aspect-ratio:1;
+    border-radius:16px;
+    background:rgba(255,255,255,.05);
+    border:2px solid var(--glass-border);
+    display:grid;
+    place-items:center;
+    font-size:34px;
+    cursor:pointer;
+    transition:all .2s cubic-bezier(.2,.8,.2,1);
+    user-select:none;
+}
+.dealer-option:hover{
+    transform:scale(1.08);
+    border-color:rgba(255,215,106,.5);
+    background:rgba(255,215,106,.1);
+}
+.dealer-option.active{
+    border-color:var(--gold);
+    background:linear-gradient(135deg,rgba(255,215,106,.2),rgba(255,159,67,.2));
+    box-shadow:0 0 24px rgba(255,215,106,.4);
+    transform:scale(1.05);
+}
+
+/* Mobile */
+@media(max-width:430px){
+    .dealer-zone{gap:9px;padding:8px 11px;margin-bottom:10px}
+    .dealer-avatar{width:52px;height:52px;font-size:26px;border-width:2.5px}
+    .dealer-bubble{padding:8px 13px;font-size:11.5px;max-width:200px}
+    .dealer-picker{grid-template-columns:repeat(4,1fr);gap:8px}
+    .dealer-option{font-size:28px;border-radius:14px}
+}
