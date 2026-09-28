@@ -19,52 +19,104 @@
 
   <div id="dashboard" class="hidden">
     <div class="header">
-      <h1 style="margin:0">👑 Quản lý người chơi</h1>
+      <h1 style="margin:0">👑 Admin Baccarat</h1>
       <div style="display:flex;gap:8px">
-        <button class="warn" onclick="Admin.loadUsers()">🔄 Làm mới</button>
+        <button class="warn" onclick="Admin.loadAll()">🔄 Làm mới</button>
         <button class="danger" onclick="Admin.logout()">Đăng xuất</button>
       </div>
     </div>
 
-    <div class="stats-row">
-      <div class="stat-card">
-        <small>Tổng người chơi</small>
-        <strong id="totalUsers">0</strong>
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" data-tab="users" onclick="Admin.switchTab('users')">👥 Người chơi</button>
+      <button class="tab" data-tab="codes" onclick="Admin.switchTab('codes')">🎁 Codes</button>
+    </div>
+
+    <!-- USERS TAB -->
+    <div id="tabUsers" class="tab-content">
+      <div class="stats-row">
+        <div class="stat-card">
+          <small>Tổng người chơi</small>
+          <strong id="totalUsers">0</strong>
+        </div>
+        <div class="stat-card">
+          <small>Tổng số dư</small>
+          <strong id="totalBalance">0</strong>
+        </div>
+        <div class="stat-card">
+          <small>Tổng ván đã chơi</small>
+          <strong id="totalRounds">0</strong>
+        </div>
       </div>
-      <div class="stat-card">
-        <small>Tổng số dư</small>
-        <strong id="totalBalance">0</strong>
-      </div>
-      <div class="stat-card">
-        <small>Tổng ván đã chơi</small>
-        <strong id="totalRounds">0</strong>
+
+      <input class="search" id="search" placeholder="🔍 Tìm kiếm username..." oninput="Admin.renderUsers()">
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Avatar</th>
+              <th>Username</th>
+              <th>Mật khẩu</th>
+              <th>Số dư</th>
+              <th>Chuỗi</th>
+              <th>Ván</th>
+              <th>Tổng cược</th>
+              <th>Tổng thắng</th>
+              <th>Trạng thái</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable"></tbody>
+        </table>
       </div>
     </div>
 
-    <input class="search" id="search" placeholder="🔍 Tìm kiếm username..." oninput="Admin.renderUsers()">
+    <!-- CODES TAB -->
+    <div id="tabCodes" class="tab-content hidden">
+      <div class="stats-row">
+        <div class="stat-card">
+          <small>Tổng code</small>
+          <strong id="totalCodes">0</strong>
+        </div>
+        <div class="stat-card">
+          <small>Code đang hoạt động</small>
+          <strong id="activeCodes">0</strong>
+        </div>
+        <div class="stat-card">
+          <small>Tổng tiền đã phát</small>
+          <strong id="totalValue">0</strong>
+        </div>
+      </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Avatar</th>
-            <th>Username</th>
-            <th>Mật khẩu</th>
-            <th>Số dư</th>
-            <th>Chuỗi</th>
-            <th>Ván</th>
-            <th>Tổng cược</th>
-            <th>Tổng thắng</th>
-            <th>Trạng thái</th>
-            <th>Hành động</th>
-          </tr>
-        </thead>
-        <tbody id="usersTable"></tbody>
-      </table>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:15px">
+        <button class="success" onclick="Admin.openCreateCode()">➕ Tạo code mới</button>
+        <input class="search" id="codeSearch" placeholder="🔍 Tìm code..." oninput="Admin.renderCodes()" style="max-width:250px;margin:0">
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Giá trị</th>
+              <th>Đã dùng</th>
+              <th>Tối đa</th>
+              <th>Lần/User</th>
+              <th>Users</th>
+              <th>Hết hạn</th>
+              <th>Trạng thái</th>
+              <th>Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="codesTable"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- MONEY MODAL -->
 <div class="modal" id="moneyModal">
   <div class="modal-box">
     <h3 id="modalTitle">Cộng tiền</h3>
@@ -78,8 +130,39 @@
   </div>
 </div>
 
+<!-- CODE CREATE MODAL -->
+<div class="modal" id="codeModal">
+  <div class="modal-box" style="max-width:500px">
+    <h3>🎁 Tạo code mới</h3>
+
+    <label class="form-label">Mã code (4-20 ký tự IN HOA + số)</label>
+    <div style="display:flex;gap:8px">
+      <input id="newCodeInput" placeholder="VD: WELCOME2024" style="text-transform:uppercase" maxlength="20">
+      <button class="warn" onclick="Admin.randomCode()" style="white-space:nowrap">🎲 Random</button>
+    </div>
+
+    <label class="form-label">Giá trị (VNĐ)</label>
+    <input id="newCodeValue" type="number" placeholder="VD: 10000" min="1">
+
+    <label class="form-label">Số người tối đa (0 = không giới hạn)</label>
+    <input id="newCodeMaxUses" type="number" value="0" min="0">
+
+    <label class="form-label">Số lần mỗi user có thể nhập</label>
+    <input id="newCodeMaxPerUser" type="number" value="1" min="1">
+
+    <label class="form-label">Ngày hết hạn (để trống = không hết hạn)</label>
+    <input id="newCodeExpires" type="datetime-local">
+
+    <div class="modal-actions">
+      <button class="success" onclick="Admin.submitCode()" style="flex:1">Tạo code</button>
+      <button class="danger" onclick="Admin.closeCodeModal()" style="flex:1">Hủy</button>
+    </div>
+    <p id="codeFormMsg" style="color:#ff5c7a;text-align:center;margin:10px 0 0;font-size:13px"></p>
+  </div>
+</div>
+
 <script>
-  window.API_URL = "https://bacarat-online.onrender.com";
+  window.API_URL = "https://your-backend.onrender.com";
 </script>
 <script src="admin.js"></script>
 </body>
