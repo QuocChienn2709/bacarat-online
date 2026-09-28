@@ -550,6 +550,32 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     .chat-bubble,.chat-input{background:rgba(20,30,60,.04)}
     .chat-float-body{background:rgba(20,30,60,.04)}
 }
+/* Tỉ lệ trả thưởng trên nút cược */
+.bet-option .bet-rate{
+    display:block;
+    font-style:normal;
+    font-size:10px;
+    color:var(--gold);
+    margin-top:3px;
+    opacity:.85;
+    font-weight:700;
+    letter-spacing:.3px;
+}
+.bet-option.active .bet-rate{
+    color:#fff;
+    opacity:1;
+}
+
+/* Nút All-In active state */
+.chip-allin.active{
+    filter:brightness(1.15);
+    box-shadow:0 0 0 2px #ffd76a, 0 8px 24px rgba(255,92,122,.5) !important;
+    animation:allInPulse 1.5s ease-in-out infinite;
+}
+@keyframes allInPulse{
+    0%,100%{box-shadow:0 0 0 2px #ffd76a, 0 8px 24px rgba(255,92,122,.5)}
+    50%    {box-shadow:0 0 0 3px #ffd76a, 0 8px 30px rgba(255,92,122,.8)}
+}
 @media(max-width:430px){
     .wrap{padding:9px}
     .handle{display:none}
