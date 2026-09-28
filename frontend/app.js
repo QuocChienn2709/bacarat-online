@@ -39,10 +39,10 @@ let lastDealerResult = "";
 // ===== SOUND STATE =====
 let soundsEnabled = true;
 let soundsVolume = 0.8;
-let availableSounds = {};         // { key: true }
+let availableSounds = {};
 let lastWarnCountdown = -1;
 let lastRevealedCount = -1;
-let lastGamePhase = "";
+let audioUnlocked = false;
 
 const DEALER_EMOJIS = [
     "🎩", "👨‍💼", "👩‍💼", "🤵",
@@ -60,6 +60,8 @@ const SOUND_META = {
     click:      { icon: "🖱️", name: "Click" },
     dealer:     { icon: "🎩", name: "Dealer nói" }
 };
+
+const CARD_RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 
 const el = id => document.getElementById(id);
 
@@ -80,8 +82,22 @@ async function api(path, options={}) {
 }
 
 // =====================================================
-// 🔊 SOUND MANAGER (server-side config, user chỉ bật/tắt + volume)
+// 🔊 SOUND MANAGER
 // =====================================================
+
+// Unlock audio cho browser autoplay policy
+function unlockAudio(){
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    try {
+        // Silent WAV để unlock
+        const silent = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        silent.volume = 0;
+        silent.play().catch(()=>{});
+    } catch(e) {}
+    console.log("🔊 Audio unlocked");
+}
+
 async function loadSoundsConfig(){
     soundsEnabled = localStorage.getItem("bac_sounds_enabled") !== "0";
     soundsVolume = Number(localStorage.getItem("bac_sounds_volume")) || 0.8;
@@ -90,25 +106,55 @@ async function loadSoundsConfig(){
         const list = await api("/api/sounds");
         availableSounds = {};
         list.forEach(s => { availableSounds[s.key] = true; });
+        console.log("🔊 Loaded sounds:", Object.keys(availableSounds));
     } catch(e) {
         console.warn("Không tải được danh sách âm thanh:", e);
         availableSounds = {};
     }
 }
 
-function playSound(key){
-    if (!soundsEnabled) return;
-    if (!availableSounds[key]) return;
+function playSound(key, opts = {}){
+    if (!soundsEnabled && !opts.force) return;
+    if (!availableSounds[key]) {
+        console.log(`🔇 Sound "${key}" chưa có`);
+        return;
+    }
     try {
         const a = new Audio(API + "/api/sounds/" + key + "/audio");
         a.volume = Math.max(0, Math.min(1, soundsVolume));
-        a.play().catch(() => {});
-    } catch(e) {}
+        a.play().then(() => {
+            console.log(`🔊 Playing: ${key}`);
+        }).catch(err => {
+            console.warn(`⚠️ Không phát được "${key}":`, err.message);
+            if (err.name === "NotAllowedError" && !audioUnlocked) {
+                unlockAudio();
+                setTimeout(() => {
+                    try { a.play().catch(()=>{}); } catch(e){}
+                }, 100);
+            }
+        });
+    } catch(e) {
+        console.error("playSound error:", e);
+    }
+}
+
+// 🎴 Đọc rank lá bài
+function playCardSound(card){
+    if (!card || !card.rank) return;
+    const rankKey = "card_" + card.rank;
+    if (availableSounds[rankKey]) {
+        playSound(rankKey);
+    }
 }
 
 function setupSoundSettings(){
-    // Mở modal
+    // Unlock audio khi có bất kỳ user interaction nào
+    ["click","touchstart","keydown"].forEach(evt => {
+        document.addEventListener(evt, unlockAudio, { once: true, passive: true });
+    });
+
     el("soundBtn").addEventListener("click", () => {
+        unlockAudio();
         renderSoundAvailableList();
         el("soundOverlay").classList.add("show");
     });
@@ -120,7 +166,6 @@ function setupSoundSettings(){
             el("soundOverlay").classList.remove("show");
     });
 
-    // Toggle
     const soundEnabledEl = el("soundEnabled");
     soundEnabledEl.checked = soundsEnabled;
     updateSoundEnabledLabel();
@@ -130,7 +175,6 @@ function setupSoundSettings(){
         localStorage.setItem("bac_sounds_enabled", soundsEnabled ? "1" : "0");
     });
 
-    // Volume
     const volEl = el("soundVolume");
     volEl.value = Math.round(soundsVolume * 100);
     el("soundVolumeValue").textContent = volEl.value + "%";
@@ -166,7 +210,7 @@ function renderSoundAvailableList(){
     box.querySelectorAll(".sound-available-test").forEach(btn => {
         btn.addEventListener("click", () => {
             const key = btn.dataset.key;
-            if (availableSounds[key]) playSound(key);
+            if (availableSounds[key]) playSound(key, { force: true });
         });
     });
 }
@@ -868,32 +912,49 @@ function applyGameState(state){
 
   el("countdown").textContent = phase === "betting" ? countdown : "•••";
 
-// 🔊 Âm thanh: còn 10s
-if (phase === "betting" && countdown === 10 && lastWarnCountdown !== 10) {
+  // 🔊 Âm thanh cảnh báo 10s
+  if (phase === "betting" && countdown === 10 && lastWarnCountdown !== 10) {
     playSound("betWarning");
     lastWarnCountdown = 10;
-}
-if (phase === "betting" && countdown > 10) {
+  }
+  if (phase === "betting" && countdown > 10) {
     lastWarnCountdown = -1;
-}
+  }
 
-  // 🔊 Âm thanh: dừng đặt cược (chuyển từ betting → dealing)
+  // 🔊 Âm thanh dừng đặt cược (betting → dealing)
   if (phase === "dealing" && prevPhase === "betting") {
+    console.log("🛑 betStop triggered");
     playSound("betStop");
   }
 
-  // 🔊 Âm thanh: lật bài (đếm số lá revealed)
+  // 🔊 Âm thanh lật bài + đọc rank
   const totalRevealed = player.filter(c => c.revealed).length
                       + banker.filter(c => c.revealed).length;
+
   if (totalRevealed > lastRevealedCount && lastRevealedCount >= 0) {
+    // 1) Tiếng lật bài chung
     playSound("deal");
+
+    // 2) Đọc rank lá vừa lật
+    const allCards = [
+        ...player.map(c => ({...c, _side:"player"})),
+        ...banker.map(c => ({...c, _side:"banker"}))
+    ].filter(c => c.revealed);
+
+    const newCount = totalRevealed - lastRevealedCount;
+    if (newCount > 0) {
+        const justRevealed = allCards.slice(-newCount);
+        justRevealed.forEach((card, idx) => {
+            setTimeout(() => playCardSound(card), 80 + idx * 100);
+        });
+    }
   }
   lastRevealedCount = totalRevealed;
 
- // Dealer nói
-if (phase === "betting" && countdown === 10) {
-    updateDealerMessage("⏰ Còn 10 giây nữa ! Đặt cược nhanh hơn!");
-}
+  // Dealer nói
+  if (phase === "betting" && countdown === 3) {
+    updateDealerMessage("⏰ Còn 3 giây! Đặt nhanh nào!");
+  }
 
   renderHands();
 
@@ -1001,6 +1062,7 @@ function updateBalanceUI(){
 // BET
 // =====================================================
 async function placeBet(side){
+  unlockAudio();
   playSound("click");
   if (!currentUsername) {
     openAccountModal();
@@ -1472,6 +1534,7 @@ el("changePassForm").addEventListener("submit", async e => {
 document.querySelectorAll(".chip").forEach(chip => {
   if (chip.id === "customChipBtn" || chip.id === "allInBtn") return;
   chip.addEventListener("click", () => {
+    unlockAudio();
     playSound("click");
     selectedChip = Number(chip.dataset.chip);
     customBet = 0;
@@ -1518,7 +1581,7 @@ el("themeBtn").addEventListener("click", function(){
   updateBalanceUI();
   updateBetUI();
 
-  await loadSoundsConfig();          // 🔊 load danh sách âm thanh từ server
+  await loadSoundsConfig();
 
   setupCollapsibles();
   setupChatPanel();
