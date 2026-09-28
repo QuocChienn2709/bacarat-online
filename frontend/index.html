@@ -12,10 +12,8 @@
 <div class="orb orb2"></div>
 <div class="orb orb3"></div>
 
-<!-- Toast nhỏ góc trên -->
 <div class="result-toast" id="resultToast"></div>
 
-<!-- Overlay thông báo lớn giữa màn hình -->
 <div class="result-flash" id="resultFlash">
     <div class="result-flash-content">
         <div class="result-flash-icon" id="flashIcon">🎉</div>
@@ -25,7 +23,6 @@
 </div>
 
 <div class="wrap">
-<!-- NAVBAR -->
 <nav class="navbar">
     <div class="brand">
         <div class="brand-icon">♠</div>
@@ -42,19 +39,26 @@
     </div>
 </nav>
 
-<!-- STATS -->
 <div class="stats">
     <div class="stat glass"><small>Số dư</small><strong id="balance">1,000</strong></div>
     <div class="stat glass"><small>Chuỗi thắng</small><strong id="streak">0</strong></div>
     <div class="stat glass"><small>Số ván</small><strong id="rounds">0</strong></div>
 </div>
 
-<!-- TABLE -->
 <section class="table glass">
     <div class="table-title">
         <div class="phase" id="phase">ĐANG ĐẶT CƯỢC</div>
         <div class="countdown" id="countdown">10</div>
     </div>
+
+    <!-- 🎩 DEALER ZONE -->
+    <div class="dealer-zone">
+        <div class="dealer-avatar" id="dealerAvatar" title="Bấm để đổi dealer">🎩</div>
+        <div class="dealer-bubble">
+            <span id="dealerText">Chào mừng! Đặt cược đi nào 🎰</span>
+        </div>
+    </div>
+
     <div class="hands">
         <div class="hand" id="playerHand">
             <div class="hand-head">
@@ -73,7 +77,6 @@
     </div>
 </section>
 
-<!-- BET PANEL -->
 <section class="bet-panel glass">
     <div class="chips">
         <button class="chip" data-chip="10">10</button>
@@ -114,7 +117,6 @@
     <button class="clear-btn" id="clearBet">Xóa cược (chỉ khi chưa cược)</button>
 </section>
 
-<!-- TOP PLAYERS -->
 <div class="section-title clickable" data-target="topWrap">
     <h3>👑 Bảng xếp hạng tổng</h3>
     <div class="section-right">
@@ -136,7 +138,6 @@
     </section>
 </div>
 
-<!-- LEADERBOARD (Cược ván này) -->
 <div class="section-title clickable" data-target="leaderboardWrap">
     <h3>🏆 Cược ván này</h3>
     <div class="section-right">
@@ -150,7 +151,6 @@
     </section>
 </div>
 
-<!-- HISTORY -->
 <div class="section-title clickable" data-target="historyWrap">
     <h3>📜 Lịch sử ván</h3>
     <div class="section-right">
@@ -171,10 +171,8 @@
 </footer>
 </div>
 
-<!-- NÚT CHAT NỔI -->
 <button class="chat-fab" id="chatFab" title="Chat">💬</button>
 
-<!-- PANEL CHAT KÉO ĐƯỢC -->
 <div class="chat-float" id="chatFloat">
     <div class="chat-float-header" id="chatDragHandle">
         <div class="chat-float-title">
@@ -196,7 +194,6 @@
     </div>
 </div>
 
-<!-- ACCOUNT MODAL -->
 <div class="account-overlay" id="accountOverlay">
     <div class="account-modal">
         <button class="account-close" id="closeAccountBtn">×</button>
@@ -280,7 +277,21 @@
     </div>
 </div>
 
-<!-- HISTORY DETAIL MODAL -->
+<!-- DEALER PICKER MODAL -->
+<div class="account-overlay" id="dealerOverlay">
+    <div class="account-modal" style="max-width:400px">
+        <button class="account-close" id="closeDealerBtn">×</button>
+        <div class="account-logo" style="background:linear-gradient(135deg,#2a3050,#4b5ca3);font-size:30px">
+            🎩
+        </div>
+        <h2>Chọn Dealer</h2>
+        <p class="account-sub">Bấm vào nhân vật bạn muốn làm người chia bài</p>
+
+        <div class="dealer-picker" id="dealerPicker"></div>
+    </div>
+</div>
+
+<!-- HISTORY DETAIL -->
 <div class="account-overlay" id="historyOverlay">
     <div class="account-modal">
         <button class="account-close" id="closeHistoryBtn">×</button>
