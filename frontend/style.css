@@ -685,19 +685,21 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     color:var(--text-2);
     font-size:10px;
 }
-/* ========== DEALER ZONE ========== */
+/* ========== DEALER ZONE (nằm trên cùng table, không che bài) ========== */
 .dealer-zone{
     display:flex;
     align-items:center;
-    justify-content:center;
     gap:12px;
-    padding:10px 14px;
+    padding:12px 14px;
     margin-bottom:12px;
     border-radius:18px;
     background:linear-gradient(135deg,rgba(91,140,255,.08),rgba(124,92,255,.08));
-    border:1px solid rgba(255,215,106,.2);
+    border:1px solid rgba(255,215,106,.25);
     position:relative;
+    z-index:1;
     animation:dealerZoneIn .4s cubic-bezier(.2,.8,.2,1);
+    min-height:76px;
+    max-height:120px;
 }
 @keyframes dealerZoneIn{
     from{opacity:0;transform:translateY(-8px)}
@@ -719,9 +721,16 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     user-select:none;
     flex-shrink:0;
     position:relative;
+    overflow:hidden;
+}
+.dealer-avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    border-radius:50%;
 }
 .dealer-avatar:hover{
-    transform:scale(1.05);
+    transform:scale(1.06);
     box-shadow:0 0 30px rgba(255,215,106,.5);
     border-color:rgba(255,215,106,.7);
 }
@@ -742,12 +751,10 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     border:2px solid var(--bg-2);
     opacity:0;
     transition:opacity .2s;
+    z-index:2;
 }
-.dealer-avatar:hover::after{
-    opacity:1;
-}
+.dealer-avatar:hover::after{ opacity:1; }
 
-/* Animation khi chia bài */
 .dealer-avatar.dealing{
     animation:dealerDeal .6s cubic-bezier(.2,.8,.2,1);
 }
@@ -758,11 +765,7 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     75% { transform:scale(1.1) rotate(-5deg); }
     100%{ transform:scale(1) rotate(0); box-shadow:0 0 20px rgba(255,215,106,.2); }
 }
-
-/* Pulse khi dealer "nói" */
-.dealer-avatar.talking{
-    animation:dealerTalk .5s ease;
-}
+.dealer-avatar.talking{ animation:dealerTalk .5s ease; }
 @keyframes dealerTalk{
     0%,100%{ transform:scale(1); }
     50%    { transform:scale(1.08); }
@@ -776,10 +779,11 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     border:1px solid var(--glass-border);
     font-size:12.5px;
     font-weight:600;
-    max-width:260px;
+    max-width:calc(100% - 90px);
     color:var(--text-1);
     line-height:1.4;
     transition:transform .3s, background .3s;
+    word-break:break-word;
 }
 .dealer-bubble::before{
     content:"";
@@ -793,9 +797,7 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     border-left:1px solid var(--glass-border);
     border-bottom:1px solid var(--glass-border);
 }
-.dealer-bubble.updating{
-    animation:bubblePulse .4s cubic-bezier(.2,.8,.2,1);
-}
+.dealer-bubble.updating{ animation:bubblePulse .4s cubic-bezier(.2,.8,.2,1); }
 @keyframes bubblePulse{
     0%  { transform:scale(1); background:rgba(255,255,255,.08); }
     50% { transform:scale(1.04); background:rgba(255,215,106,.15); }
@@ -803,6 +805,37 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
 }
 
 /* ========== DEALER PICKER ========== */
+.dealer-upload-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:6px;
+}
+.dealer-upload-row .main-btn,
+.dealer-upload-row .danger-btn{
+    flex:1;
+    height:44px;
+    border-radius:12px;
+    font-weight:800;
+    font-size:13px;
+}
+.danger-btn{
+    background:rgba(255,92,122,.15);
+    color:#ff8ca1;
+    border:1px solid rgba(255,92,122,.3);
+    cursor:pointer;
+    padding:0 16px;
+    transition:background .2s;
+}
+.danger-btn:hover{ background:rgba(255,92,122,.28); }
+
+.dealer-upload-hint{
+    font-size:10px;
+    color:var(--text-2);
+    text-align:center;
+    margin-bottom:8px;
+    line-height:1.5;
+}
+
 .dealer-picker{
     display:grid;
     grid-template-columns:repeat(4,1fr);
@@ -833,11 +866,196 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     transform:scale(1.05);
 }
 
+/* ========== SOUND SETTINGS ========== */
+.sound-master{
+    padding:12px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--glass-border);
+    margin-bottom:12px;
+}
+.sound-toggle{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    cursor:pointer;
+    user-select:none;
+}
+.sound-toggle input{ display:none; }
+.sound-toggle-slider{
+    position:relative;
+    width:44px;
+    height:24px;
+    border-radius:20px;
+    background:rgba(255,255,255,.15);
+    transition:background .25s;
+    flex-shrink:0;
+}
+.sound-toggle-slider::after{
+    content:"";
+    position:absolute;
+    top:2px;
+    left:2px;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:#fff;
+    transition:transform .25s cubic-bezier(.4,.15,.2,1);
+}
+.sound-toggle input:checked + .sound-toggle-slider{
+    background:linear-gradient(135deg,var(--accent-1),var(--accent-2));
+}
+.sound-toggle input:checked + .sound-toggle-slider::after{
+    transform:translateX(20px);
+}
+.sound-toggle-label{
+    font-size:14px;
+    font-weight:700;
+}
+
+.sound-volume-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.05);
+    border:1px solid var(--glass-border);
+    margin-bottom:14px;
+}
+.sound-volume-label{
+    font-size:12px;
+    color:var(--text-2);
+    font-weight:700;
+    flex-shrink:0;
+}
+.sound-volume-slider{
+    flex:1;
+    -webkit-appearance:none;
+    height:6px;
+    border-radius:4px;
+    background:rgba(255,255,255,.15);
+    outline:none;
+}
+.sound-volume-slider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:linear-gradient(135deg,var(--accent-1),var(--accent-2));
+    cursor:pointer;
+    box-shadow:0 2px 8px rgba(91,140,255,.4);
+}
+.sound-volume-slider::-moz-range-thumb{
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:linear-gradient(135deg,var(--accent-1),var(--accent-2));
+    cursor:pointer;
+    border:0;
+}
+.sound-volume-value{
+    font-size:12px;
+    color:var(--gold);
+    font-weight:800;
+    min-width:42px;
+    text-align:right;
+}
+
+.sound-slots{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.sound-slot{
+    display:grid;
+    grid-template-columns:1fr auto;
+    grid-template-rows:auto auto;
+    gap:6px 10px;
+    padding:10px 12px;
+    border-radius:14px;
+    background:rgba(255,255,255,.04);
+    border:1px solid var(--glass-border);
+    transition:border-color .2s;
+}
+.sound-slot.has-sound{
+    border-color:rgba(55,214,122,.4);
+    background:rgba(55,214,122,.06);
+}
+.sound-slot-info{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+.sound-slot-icon{
+    font-size:22px;
+    flex-shrink:0;
+}
+.sound-slot-text strong{
+    display:block;
+    font-size:13px;
+    color:var(--text-1);
+}
+.sound-slot-text small{
+    display:block;
+    font-size:10px;
+    color:var(--text-2);
+    margin-top:2px;
+}
+.sound-slot-actions{
+    display:flex;
+    gap:5px;
+    align-items:center;
+}
+.sound-btn{
+    width:32px;
+    height:32px;
+    border-radius:9px;
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--glass-border);
+    color:var(--text-1);
+    font-size:14px;
+    display:grid;
+    place-items:center;
+    padding:0;
+    cursor:pointer;
+    transition:background .2s;
+}
+.sound-btn:hover{
+    background:rgba(255,255,255,.15);
+}
+.sound-btn.upload{
+    background:linear-gradient(135deg,rgba(91,140,255,.2),rgba(124,92,255,.2));
+    border-color:rgba(91,140,255,.3);
+}
+.sound-btn.delete{
+    background:rgba(255,92,122,.12);
+    border-color:rgba(255,92,122,.25);
+}
+.sound-btn.delete:hover{
+    background:rgba(255,92,122,.3);
+}
+.sound-slot-status{
+    grid-column:1 / -1;
+    font-size:10px;
+    color:var(--text-2);
+    padding-left:32px;
+    word-break:break-all;
+}
+.sound-slot.has-sound .sound-slot-status{
+    color:#6ee79c;
+}
+
 /* Mobile */
 @media(max-width:430px){
-    .dealer-zone{gap:9px;padding:8px 11px;margin-bottom:10px}
+    .dealer-zone{gap:9px;padding:9px 11px;margin-bottom:10px;min-height:68px}
     .dealer-avatar{width:52px;height:52px;font-size:26px;border-width:2.5px}
-    .dealer-bubble{padding:8px 13px;font-size:11.5px;max-width:200px}
+    .dealer-avatar::after{width:18px;height:18px;font-size:10px}
+    .dealer-bubble{padding:8px 13px;font-size:11.5px;max-width:calc(100% - 75px)}
     .dealer-picker{grid-template-columns:repeat(4,1fr);gap:8px}
     .dealer-option{font-size:28px;border-radius:14px}
+    .sound-slot-icon{font-size:18px}
+    .sound-slot-text strong{font-size:12px}
+    .sound-btn{width:30px;height:30px;font-size:13px}
 }
