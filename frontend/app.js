@@ -890,10 +890,10 @@ if (phase === "betting" && countdown > 10) {
   }
   lastRevealedCount = totalRevealed;
 
-  // Dealer nói
-  if (phase === "betting" && countdown === 3) {
-    updateDealerMessage("⏰ Còn 3 giây! Đặt nhanh nào!");
-  }
+ // Dealer nói
+if (phase === "betting" && countdown === 10) {
+    updateDealerMessage("⏰ Còn 10 giây nữa ! Đặt cược nhanh hơn!");
+}
 
   renderHands();
 
