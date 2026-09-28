@@ -20,6 +20,7 @@ let topType = "win";
 let onlineUsers = [];
 let myBets = { player:0, banker:0, tie:0 };
 let selectedChip = 25;
+let customBet = 0;
 let socket = null;
 let lastRoundId = 0;
 let toastTimer = null;
@@ -242,6 +243,86 @@ function resizeImage(file, maxSize = 128, quality = 0.85){
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+// ============ CUSTOM BET + ALL-IN ============
+function setupCustomBet(){
+  const customBtn = el("customChipBtn");
+  const customRow = el("customBetRow");
+  const customInput = el("customBetInput");
+  const customOk = el("customBetOk");
+  const customCancel = el("customBetCancel");
+  const allInBtn = el("allInBtn");
+
+  customBtn.addEventListener("click", () => {
+    if (customBet > 0) {
+      customBet = 0;
+      customBtn.classList.remove("active");
+      customBtn.textContent = "✏️";
+      customRow.style.display = "none";
+      return;
+    }
+    customRow.style.display = "flex";
+    customInput.value = customBet || "";
+    setTimeout(() => customInput.focus(), 100);
+  });
+
+  function applyCustom(){
+    const val = Math.floor(Number(customInput.value));
+    if (!val || val < 1) {
+      alert("Số tiền không hợp lệ (tối thiểu 1)");
+      return;
+    }
+    if (val > balance) {
+      alert("Số tiền vượt quá số dư!");
+      return;
+    }
+    customBet = val;
+    selectedChip = val;
+    customBtn.classList.add("active");
+    customBtn.textContent = val >= 1000 ? Math.floor(val/1000) + "K" : val;
+    customRow.style.display = "none";
+    document.querySelectorAll(".chip").forEach(x => {
+      if (x !== customBtn) x.classList.remove("active");
+    });
+  }
+
+  customOk.addEventListener("click", applyCustom);
+  customInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); applyCustom(); }
+    if (e.key === "Escape") customRow.style.display = "none";
+  });
+
+  customCancel.addEventListener("click", () => {
+    customRow.style.display = "none";
+  });
+
+  allInBtn.addEventListener("click", () => {
+    if (!currentUsername) {
+      openAccountModal();
+      showAuthMessage("Hãy đăng nhập để đặt cược.");
+      return;
+    }
+    if (phase !== "betting") {
+      alert("Chỉ có thể All-In trong thời gian đặt cược!");
+      return;
+    }
+    if (balance <= 0) {
+      alert("Bạn không còn tiền để All-In!");
+      return;
+    }
+    const amount = balance;
+    if (!confirm(`🔥 ALL-IN ${amount.toLocaleString("vi-VN")}?\n\nSau khi bấm OK, chọn cửa PLAYER/BANKER/TIE để đặt toàn bộ số dư.`)) {
+      return;
+    }
+    customBet = amount;
+    selectedChip = amount;
+    customBtn.classList.add("active");
+    customBtn.textContent = amount >= 1000 ? Math.floor(amount/1000) + "K" : amount;
+    document.querySelectorAll(".chip").forEach(x => {
+      if (x !== customBtn) x.classList.remove("active");
+    });
   });
 }
 
@@ -469,6 +550,16 @@ function updateBalanceUI(){
   el("rounds").textContent = roundsPlayed;
   if (currentUsername && el("accountBalance"))
     el("accountBalance").textContent = balance.toLocaleString("vi-VN");
+
+  // 🔥 Nếu đang ở chế độ All-In, cập nhật lại text chip
+  if (customBet > 0 && customBet === balance) {
+    const customBtn = el("customChipBtn");
+    if (customBtn) {
+      customBtn.textContent = balance >= 1000
+        ? Math.floor(balance/1000) + "K"
+        : balance;
+    }
+  }
 }
 
 // ============ BET ============
@@ -481,25 +572,38 @@ async function placeBet(side){
   if (phase !== "betting") return;
   if (side === "player" && myBets.banker > 0) return;
   if (side === "banker" && myBets.player > 0) return;
-  if (balance < selectedChip) { alert("Không đủ số dư."); return; }
 
-  balance -= selectedChip;
-  myBets[side] += selectedChip;
+  // 🔥 Xác định số tiền: All-In = balance, custom = customBet, ngược lại = selectedChip
+  let amount = selectedChip;
+  if (customBet > 0 && customBet === balance) {
+    amount = balance;
+  } else if (customBet > 0) {
+    amount = customBet;
+  }
+
+  if (amount <= 0) return;
+  if (balance < amount) {
+    alert("Không đủ số dư.");
+    return;
+  }
+
+  balance -= amount;
+  myBets[side] += amount;
   updateBetUI();
   updateBalanceUI();
 
   try {
     const res = await api("/api/game/bet", {
       method: "POST",
-      body: JSON.stringify({ side, amount: selectedChip })
+      body: JSON.stringify({ side, amount })
     });
     myBets = res.bets;
     balance = res.balance;
     updateBetUI();
     updateBalanceUI();
   } catch(e){
-    balance += selectedChip;
-    myBets[side] -= selectedChip;
+    balance += amount;
+    myBets[side] -= amount;
     updateBetUI();
     updateBalanceUI();
     alert(e.message);
@@ -515,7 +619,7 @@ async function refreshMyBets(){
   } catch(e){}
 }
 
-// ============ LEADERBOARD (Cược ván này) ============
+// ============ LEADERBOARD ============
 function renderLeaderboard(){
   const box = el("leaderboardList");
   el("leaderboardCount").textContent = leaderboard.length + " người cược";
@@ -532,7 +636,6 @@ function renderLeaderboard(){
     const rankCls = rank === 1 ? "rank-1" : rank === 2 ? "rank-2" : rank === 3 ? "rank-3" : "";
     const rankIcon = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
 
-    // 🔥 Avatar: ưu tiên từ server, fallback avatar user hiện tại
     let avatarSrc = entry.avatar || "";
     if (isMe && !avatarSrc && currentAvatar) avatarSrc = currentAvatar;
 
@@ -801,6 +904,20 @@ function doLogout(){
   localStorage.removeItem("bac_avatar");
   balance = 1000; streak = 0; roundsPlayed = 0;
   myBets = {player:0,banker:0,tie:0};
+  customBet = 0;
+  const cbtn = el("customChipBtn");
+  if (cbtn) {
+    cbtn.textContent = "✏️";
+    cbtn.classList.remove("active");
+  }
+  const crow = el("customBetRow");
+  if (crow) crow.style.display = "none";
+  // Reset chip mặc định
+  document.querySelectorAll(".chip").forEach(x => x.classList.remove("active"));
+  const defaultChip = document.querySelector('.chip[data-chip="25"]');
+  if (defaultChip) defaultChip.classList.add("active");
+  selectedChip = 25;
+
   leaderboard = [];
   renderLeaderboard();
   updateAccountUI(); updateBalanceUI(); updateBetUI();
@@ -923,11 +1040,18 @@ el("changePassForm").addEventListener("submit", async e => {
   }
 });
 
+// Chips mặc định (bỏ qua custom + allin)
 document.querySelectorAll(".chip").forEach(chip => {
+  if (chip.id === "customChipBtn" || chip.id === "allInBtn") return;
+
   chip.addEventListener("click", () => {
     selectedChip = Number(chip.dataset.chip);
+    customBet = 0;
+    const cbtn = el("customChipBtn");
+    if (cbtn) cbtn.textContent = "✏️";
     document.querySelectorAll(".chip").forEach(x=>x.classList.remove("active"));
     chip.classList.add("active");
+    el("customBetRow").style.display = "none";
   });
 });
 
@@ -965,6 +1089,7 @@ el("themeBtn").addEventListener("click", function(){
   setupChatPanel();
   setupAvatarEditor();
   setupTopTabs();
+  setupCustomBet();
 
   loadTopPlayers();
 
