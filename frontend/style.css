@@ -126,7 +126,6 @@ button{cursor:pointer;border:0}
     opacity:1;margin-bottom:0}
 .collapsible.collapsed{max-height:0;opacity:0;pointer-events:none}
 
-/* ========== LEADERBOARD (Cược ván này) ========== */
 .leaderboard{padding:9px;max-height:340px;overflow-y:auto}
 .leaderboard-item{
     display:grid;
@@ -150,22 +149,17 @@ button{cursor:pointer;border:0}
     color:#101522;border-color:transparent}
 .leaderboard-rank.rank-3{background:linear-gradient(135deg,#d9a15a,#b87333);
     color:#101522;border-color:transparent}
-
-/* 🔥 Avatar trong leaderboard */
 .leaderboard-avatar{
     width:34px;height:34px;
     border-radius:50%;
     display:grid;place-items:center;
     color:white;
     background:linear-gradient(135deg,var(--accent-1),var(--accent-2));
-    font-weight:900;
-    font-size:13px;
-    overflow:hidden;
-    flex-shrink:0;
+    font-weight:900;font-size:13px;
+    overflow:hidden;flex-shrink:0;
     border:2px solid rgba(255,255,255,.15);
 }
 .leaderboard-avatar img{width:100%;height:100%;object-fit:cover}
-
 .leaderboard-main strong{display:block;font-size:13px;color:var(--text-1)}
 .leaderboard-main small{display:block;margin-top:3px;color:var(--text-2);font-size:10px;
     display:flex;gap:8px;flex-wrap:wrap}
@@ -181,7 +175,6 @@ button{cursor:pointer;border:0}
 @keyframes lbSlideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
 @keyframes lbPulse{0%{transform:scale(1)}50%{transform:scale(1.03);background:rgba(91,140,255,.15)}100%{transform:scale(1)}}
 
-/* ========== TOP PLAYERS ========== */
 .top-players{padding:9px}
 .top-tabs{
     display:grid;grid-template-columns:repeat(4,1fr);
@@ -468,6 +461,85 @@ button{cursor:pointer;border:0}
 .chat-send{width:44px;height:40px;border-radius:12px;color:white;padding:0;
     background:linear-gradient(135deg,var(--accent-1),var(--accent-2))}
 
+/* ========== CUSTOM BET + ALL-IN ========== */
+.chip-custom{
+    background:linear-gradient(135deg,rgba(255,215,106,.15),rgba(255,159,67,.15)) !important;
+    border-color:rgba(255,215,106,.4) !important;
+    color:var(--gold) !important;
+    min-width:48px;
+}
+.chip-custom:hover{
+    background:linear-gradient(135deg,rgba(255,215,106,.3),rgba(255,159,67,.3)) !important;
+}
+.chip-custom.active{
+    background:linear-gradient(135deg,var(--gold),#ff9f43) !important;
+    border-color:transparent !important;
+    color:#101522 !important;
+    box-shadow:0 8px 20px rgba(255,215,106,.35) !important;
+}
+
+.chip-allin{
+    background:linear-gradient(135deg,#ff5c7a,#ff9f43) !important;
+    border-color:transparent !important;
+    color:white !important;
+    font-weight:900 !important;
+    min-width:85px;
+    box-shadow:0 8px 20px rgba(255,92,122,.3);
+}
+.chip-allin:hover{filter:brightness(1.1)}
+.chip-allin:active{transform:scale(.96)}
+
+.custom-bet-row{
+    display:flex;
+    gap:7px;
+    margin-bottom:11px;
+    animation:customBetIn .25s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes customBetIn{
+    from{opacity:0;transform:translateY(-8px)}
+    to{opacity:1;transform:translateY(0)}
+}
+.custom-bet-input{
+    flex:1;
+    min-width:0;
+    height:40px;
+    padding:0 13px;
+    outline:none;
+    border-radius:12px;
+    border:1px solid var(--glass-border);
+    background:rgba(255,255,255,.06);
+    color:var(--text-1);
+    font-size:14px;
+    font-weight:700;
+}
+.custom-bet-input:focus{
+    border-color:var(--gold);
+    box-shadow:0 0 0 2px rgba(255,215,106,.2);
+}
+.custom-bet-input::-webkit-outer-spin-button,
+.custom-bet-input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+}
+.custom-bet-input[type=number]{-moz-appearance:textfield}
+.custom-bet-ok{
+    padding:0 16px;
+    height:40px;
+    border-radius:12px;
+    color:#101522;
+    font-weight:800;
+    background:linear-gradient(135deg,var(--gold),#ff9f43);
+}
+.custom-bet-cancel{
+    width:40px;
+    height:40px;
+    border-radius:12px;
+    color:var(--text-2);
+    background:rgba(255,255,255,.06);
+    border:1px solid var(--glass-border);
+    font-size:14px;
+}
+
 footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     font-size:9px;line-height:1.7}
 
@@ -502,4 +574,6 @@ footer{padding:18px 5px 30px;text-align:center;color:var(--text-2);
     .top-rank{width:26px;height:26px;font-size:10px}
     .leaderboard-item{grid-template-columns:28px 32px 1fr auto;gap:6px;padding:8px 4px}
     .leaderboard-avatar{width:30px;height:30px;font-size:11px}
+    .chip-allin{font-size:11px;min-width:70px;padding:0 10px}
+    .chip-custom{font-size:14px;min-width:42px}
 }
